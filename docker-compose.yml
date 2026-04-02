@@ -1,0 +1,12 @@
+services:
+  mcp-searxng:
+    build: .
+    container_name: mcp-searxng
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - FASTMCP_HOST=0.0.0.0
+      - FASTMCP_PORT=3702
+      - TZ=${TZ:-America/New_York}
