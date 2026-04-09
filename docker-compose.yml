@@ -3,10 +3,16 @@ services:
     build: .
     container_name: mcp-searxng
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "${FASTMCP_PORT:-3702}:3702"
     env_file:
       - .env
     environment:
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=3702
       - TZ=${TZ:-America/New_York}
+    networks:
+      - searxng-net
+
+networks:
+  searxng-net:
