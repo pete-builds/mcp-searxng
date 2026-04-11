@@ -15,6 +15,8 @@ import time
 
 import httpx
 
+from exceptions import SearxngAPIError, SearxngConnectionError, SearxngError, SearxngParseError
+
 logger = logging.getLogger("searxng.queries")
 
 # Minimum seconds between requests to avoid engine rate limits
@@ -48,11 +50,19 @@ class SearxngClient:
             try:
                 resp = await self._client.get(url, params=params)
                 resp.raise_for_status()
-                return resp.json()
-            except (httpx.RemoteProtocolError, httpx.ConnectError):
+                try:
+                    return resp.json()
+                except (ValueError, TypeError) as exc:
+                    raise SearxngParseError(url, f"invalid JSON: {exc}") from exc
+            except httpx.HTTPStatusError as exc:
+                raise SearxngAPIError(exc.response.status_code, url, str(exc)) from exc
+            except (httpx.RemoteProtocolError, httpx.ConnectError) as exc:
                 if attempt == 0:
+                    logger.debug("Retrying %s after connection error: %s", url, exc)
                     continue
-                raise
+                raise SearxngConnectionError(url, str(exc)) from exc
+            except httpx.TimeoutException as exc:
+                raise SearxngConnectionError(url, f"timeout: {exc}") from exc
 
     def _shape_results(self, data: dict) -> list[dict]:
         """Extract useful fields from raw SearXNG results."""
@@ -95,7 +105,9 @@ class SearxngClient:
             else:
                 seen[url] = {**r, "engines": [r.get("engine", "?")], "engine_count": 1}
         # Sort by engine_count (multi-engine first), then score
-        deduped = sorted(seen.values(), key=lambda x: (x["engine_count"], x.get("score", 0)), reverse=True)
+        deduped = sorted(
+            seen.values(), key=lambda x: (x["engine_count"], x.get("score", 0)), reverse=True
+        )
         return deduped
 
     async def search(
@@ -142,7 +154,11 @@ class SearxngClient:
         engines_used = sorted(set(r.get("engine", "?") for r in results))
         logger.info(
             "query=%r  categories=%s  results=%d  engines=%s  time_range=%s",
-            query, categories, len(results), ",".join(engines_used), time_range or "none",
+            query,
+            categories,
+            len(results),
+            ",".join(engines_used),
+            time_range or "none",
         )
 
         return {
@@ -204,7 +220,10 @@ class SearxngClient:
 
         logger.info(
             "deep_search query=%r  pages=%d  raw=%d  deduped=%d",
-            query, pages, len(all_results), len(deduped),
+            query,
+            pages,
+            len(all_results),
+            len(deduped),
         )
 
         return {
@@ -270,16 +289,15 @@ class SearxngClient:
                 data = await self.search(
                     query=query,
                     categories=category_map[label],
-                    max_results=20,
                 )
-                results = data.get("results", [])
+                results = data.get("results", [])[:20]
                 # Tag each result with the search category
                 for r in results:
                     r["search_category"] = label
                 all_results[label] = results
                 total_raw += len(results)
-            except Exception as e:
-                logger.warning("person_search %s query failed: %s", label, e)
+            except SearxngError as exc:
+                logger.warning("person_search %s query failed: %s", label, exc)
                 all_results[label] = []
 
         # Also merge all results for a deduplicated master list
@@ -290,7 +308,10 @@ class SearxngClient:
 
         logger.info(
             "person_search name=%r  location=%r  raw=%d  deduped=%d",
-            name, location, total_raw, len(deduped),
+            name,
+            location,
+            total_raw,
+            len(deduped),
         )
 
         return {
@@ -309,12 +330,14 @@ class SearxngClient:
 
         engines = []
         for eng in data.get("engines", []):
-            engines.append({
-                "name": eng.get("name"),
-                "categories": eng.get("categories", []),
-                "language_support": eng.get("language_support", False),
-                "enabled": eng.get("enabled", True),
-            })
+            engines.append(
+                {
+                    "name": eng.get("name"),
+                    "categories": eng.get("categories", []),
+                    "language_support": eng.get("language_support", False),
+                    "enabled": eng.get("enabled", True),
+                }
+            )
 
         categories = sorted(data.get("categories", []))
 
