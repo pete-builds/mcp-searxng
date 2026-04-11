@@ -15,6 +15,8 @@ import time
 
 import httpx
 
+from exceptions import SearxngAPIError, SearxngConnectionError, SearxngError, SearxngParseError
+
 logger = logging.getLogger("searxng.queries")
 
 # Minimum seconds between requests to avoid engine rate limits
@@ -48,11 +50,19 @@ class SearxngClient:
             try:
                 resp = await self._client.get(url, params=params)
                 resp.raise_for_status()
-                return resp.json()
-            except (httpx.RemoteProtocolError, httpx.ConnectError):
+                try:
+                    return resp.json()
+                except (ValueError, TypeError) as exc:
+                    raise SearxngParseError(url, f"invalid JSON: {exc}") from exc
+            except httpx.HTTPStatusError as exc:
+                raise SearxngAPIError(exc.response.status_code, url, str(exc)) from exc
+            except (httpx.RemoteProtocolError, httpx.ConnectError) as exc:
                 if attempt == 0:
+                    logger.debug("Retrying %s after connection error: %s", url, exc)
                     continue
-                raise
+                raise SearxngConnectionError(url, str(exc)) from exc
+            except httpx.TimeoutException as exc:
+                raise SearxngConnectionError(url, f"timeout: {exc}") from exc
 
     def _shape_results(self, data: dict) -> list[dict]:
         """Extract useful fields from raw SearXNG results."""
@@ -270,16 +280,15 @@ class SearxngClient:
                 data = await self.search(
                     query=query,
                     categories=category_map[label],
-                    max_results=20,
                 )
-                results = data.get("results", [])
+                results = data.get("results", [])[:20]
                 # Tag each result with the search category
                 for r in results:
                     r["search_category"] = label
                 all_results[label] = results
                 total_raw += len(results)
-            except Exception as e:
-                logger.warning("person_search %s query failed: %s", label, e)
+            except SearxngError as exc:
+                logger.warning("person_search %s query failed: %s", label, exc)
                 all_results[label] = []
 
         # Also merge all results for a deduplicated master list
