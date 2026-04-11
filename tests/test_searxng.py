@@ -1,6 +1,5 @@
 """Tests for clients/searxng.py."""
 
-import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -9,7 +8,6 @@ import respx
 
 from clients.searxng import REQUEST_DELAY, SearxngClient
 from exceptions import SearxngAPIError, SearxngConnectionError
-
 
 # ============================================================
 # _shape_results
@@ -189,9 +187,7 @@ class TestGet:
 
     @respx.mock
     async def test_retry_exhausted_raises(self, client, searxng_url):
-        respx.get(f"{searxng_url}/search").mock(
-            side_effect=httpx.ConnectError("still down")
-        )
+        respx.get(f"{searxng_url}/search").mock(side_effect=httpx.ConnectError("still down"))
         with pytest.raises(SearxngConnectionError):
             await client._get("/search")
 
@@ -251,9 +247,7 @@ class TestSearch:
                 }
             ],
         }
-        respx.get(f"{searxng_url}/search").mock(
-            return_value=httpx.Response(200, json=data)
-        )
+        respx.get(f"{searxng_url}/search").mock(return_value=httpx.Response(200, json=data))
         result = await client.search("python")
         assert len(result["infoboxes"]) == 1
         assert result["infoboxes"][0]["title"] == "Python"
@@ -266,9 +260,7 @@ class TestSearch:
             "query": "pythn",
             "suggestions": ["python"],
         }
-        respx.get(f"{searxng_url}/search").mock(
-            return_value=httpx.Response(200, json=data)
-        )
+        respx.get(f"{searxng_url}/search").mock(return_value=httpx.Response(200, json=data))
         result = await client.search("pythn")
         assert result["suggestions"] == ["python"]
 
@@ -282,15 +274,11 @@ class TestSearchDeep:
     @respx.mock
     async def test_search_deep_multiple_pages(self, client, searxng_url):
         page1 = {
-            "results": [
-                {"title": "A", "url": "https://a.com", "content": "a", "engine": "google"}
-            ],
+            "results": [{"title": "A", "url": "https://a.com", "content": "a", "engine": "google"}],
             "query": "deep",
         }
         page2 = {
-            "results": [
-                {"title": "B", "url": "https://b.com", "content": "b", "engine": "brave"}
-            ],
+            "results": [{"title": "B", "url": "https://b.com", "content": "b", "engine": "brave"}],
             "query": "deep",
         }
         page3 = {"results": [], "query": "deep"}
@@ -316,9 +304,7 @@ class TestSearchDeep:
     @respx.mock
     async def test_search_deep_stops_on_empty_page(self, client, searxng_url):
         page1 = {
-            "results": [
-                {"title": "A", "url": "https://a.com", "content": "a", "engine": "google"}
-            ],
+            "results": [{"title": "A", "url": "https://a.com", "content": "a", "engine": "google"}],
             "query": "q",
         }
         page2 = {"results": [], "query": "q"}
@@ -367,9 +353,7 @@ class TestSearchPerson:
             ],
             "query": "john smith",
         }
-        respx.get(f"{searxng_url}/search").mock(
-            return_value=httpx.Response(200, json=api_response)
-        )
+        respx.get(f"{searxng_url}/search").mock(return_value=httpx.Response(200, json=api_response))
         result = await client.search_person("John Smith", location="Ithaca NY")
         assert result["name"] == "John Smith"
         assert result["location"] == "Ithaca NY"
@@ -381,13 +365,9 @@ class TestSearchPerson:
     @respx.mock
     async def test_search_person_with_context(self, client, searxng_url):
         respx.get(f"{searxng_url}/search").mock(
-            return_value=httpx.Response(
-                200, json={"results": [], "query": "q"}
-            )
+            return_value=httpx.Response(200, json={"results": [], "query": "q"})
         )
-        result = await client.search_person(
-            "Jane Doe", location="NYC", context="owns a bakery"
-        )
+        result = await client.search_person("Jane Doe", location="NYC", context="owns a bakery")
         assert result["context"] == "owns a bakery"
 
     @respx.mock
@@ -403,7 +383,12 @@ class TestSearchPerson:
                 return httpx.Response(500)
             return httpx.Response(
                 200,
-                json={"results": [{"title": "R", "url": "https://example.com", "content": "c", "engine": "g"}], "query": "q"},
+                json={
+                    "results": [
+                        {"title": "R", "url": "https://example.com", "content": "c", "engine": "g"}
+                    ],
+                    "query": "q",
+                },
             )
 
         respx.get(f"{searxng_url}/search").mock(side_effect=side_effect)
@@ -450,9 +435,7 @@ class TestGetConfig:
             "safe_search": 0,
             "default_locale": "en",
         }
-        respx.get(f"{searxng_url}/config").mock(
-            return_value=httpx.Response(200, json=config_data)
-        )
+        respx.get(f"{searxng_url}/config").mock(return_value=httpx.Response(200, json=config_data))
         result = await client.get_config()
         assert result["instance_name"] == "test-searxng"
         assert result["version"] == "1.0.0"

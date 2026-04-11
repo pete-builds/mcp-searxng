@@ -10,7 +10,9 @@ class SearxngConnectionError(SearxngError):
 
     def __init__(self, url: str, detail: str = ""):
         self.url = url
-        super().__init__(f"Connection failed for {url}: {detail}" if detail else f"Connection failed for {url}")
+        super().__init__(
+            f"Connection failed for {url}: {detail}" if detail else f"Connection failed for {url}"
+        )
 
 
 class SearxngAPIError(SearxngError):
@@ -19,7 +21,11 @@ class SearxngAPIError(SearxngError):
     def __init__(self, status_code: int, url: str, detail: str = ""):
         self.status_code = status_code
         self.url = url
-        super().__init__(f"HTTP {status_code} from {url}: {detail}" if detail else f"HTTP {status_code} from {url}")
+        super().__init__(
+            f"HTTP {status_code} from {url}: {detail}"
+            if detail
+            else f"HTTP {status_code} from {url}"
+        )
 
 
 class SearxngParseError(SearxngError):
@@ -27,4 +33,6 @@ class SearxngParseError(SearxngError):
 
     def __init__(self, url: str, detail: str = ""):
         self.url = url
-        super().__init__(f"Invalid response from {url}: {detail}" if detail else f"Invalid response from {url}")
+        super().__init__(
+            f"Invalid response from {url}: {detail}" if detail else f"Invalid response from {url}"
+        )

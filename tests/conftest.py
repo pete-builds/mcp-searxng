@@ -1,7 +1,5 @@
 """Shared test fixtures for mcp-searxng."""
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from clients.searxng import SearxngClient

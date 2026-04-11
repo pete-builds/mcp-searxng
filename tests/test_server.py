@@ -19,6 +19,7 @@ def _patch_env(monkeypatch):
 def server_module():
     """Import server module with SEARXNG_URL set."""
     import importlib
+
     import server
 
     importlib.reload(server)
@@ -190,6 +191,7 @@ class TestModuleLevelConfig:
         monkeypatch.delenv("SEARXNG_URL", raising=False)
         with pytest.raises(SystemExit) as exc_info:
             import importlib
+
             import server
 
             importlib.reload(server)

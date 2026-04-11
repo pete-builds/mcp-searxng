@@ -105,7 +105,9 @@ class SearxngClient:
             else:
                 seen[url] = {**r, "engines": [r.get("engine", "?")], "engine_count": 1}
         # Sort by engine_count (multi-engine first), then score
-        deduped = sorted(seen.values(), key=lambda x: (x["engine_count"], x.get("score", 0)), reverse=True)
+        deduped = sorted(
+            seen.values(), key=lambda x: (x["engine_count"], x.get("score", 0)), reverse=True
+        )
         return deduped
 
     async def search(
@@ -152,7 +154,11 @@ class SearxngClient:
         engines_used = sorted(set(r.get("engine", "?") for r in results))
         logger.info(
             "query=%r  categories=%s  results=%d  engines=%s  time_range=%s",
-            query, categories, len(results), ",".join(engines_used), time_range or "none",
+            query,
+            categories,
+            len(results),
+            ",".join(engines_used),
+            time_range or "none",
         )
 
         return {
@@ -214,7 +220,10 @@ class SearxngClient:
 
         logger.info(
             "deep_search query=%r  pages=%d  raw=%d  deduped=%d",
-            query, pages, len(all_results), len(deduped),
+            query,
+            pages,
+            len(all_results),
+            len(deduped),
         )
 
         return {
@@ -299,7 +308,10 @@ class SearxngClient:
 
         logger.info(
             "person_search name=%r  location=%r  raw=%d  deduped=%d",
-            name, location, total_raw, len(deduped),
+            name,
+            location,
+            total_raw,
+            len(deduped),
         )
 
         return {
@@ -318,12 +330,14 @@ class SearxngClient:
 
         engines = []
         for eng in data.get("engines", []):
-            engines.append({
-                "name": eng.get("name"),
-                "categories": eng.get("categories", []),
-                "language_support": eng.get("language_support", False),
-                "enabled": eng.get("enabled", True),
-            })
+            engines.append(
+                {
+                    "name": eng.get("name"),
+                    "categories": eng.get("categories", []),
+                    "language_support": eng.get("language_support", False),
+                    "enabled": eng.get("enabled", True),
+                }
+            )
 
         categories = sorted(data.get("categories", []))
 
