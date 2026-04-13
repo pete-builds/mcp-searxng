@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from clients.searxng import SearxngClient
+from exceptions import SearxngError
 
 load_dotenv()
 
@@ -24,6 +25,7 @@ logging.basicConfig(
     format="%(asctime)s  %(name)s  %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+logger = logging.getLogger(__name__)
 
 # --- Config validation ---
 SEARXNG_URL = os.getenv("SEARXNG_URL")
@@ -76,13 +78,17 @@ async def search(
         JSON with search results (title, url, content snippet, engine), suggestions, and infoboxes.
     """
     max_results = min(max_results, 30)
-    data = await searxng.search(
-        query=query,
-        categories=categories,
-        engines=engines,
-        language=language,
-        time_range=time_range,
-    )
+    try:
+        data = await searxng.search(
+            query=query,
+            categories=categories,
+            engines=engines,
+            language=language,
+            time_range=time_range,
+        )
+    except SearxngError as exc:
+        logger.error("search failed: %s", exc)
+        return _format({"error": str(exc), "query": query})
 
     # Trim results to requested max
     if data.get("results"):
@@ -110,12 +116,16 @@ async def search_news(
         JSON with news results including title, url, content snippet, published date, and source engine.
     """
     max_results = min(max_results, 30)
-    data = await searxng.search(
-        query=query,
-        categories="news",
-        language=language,
-        time_range=time_range,
-    )
+    try:
+        data = await searxng.search(
+            query=query,
+            categories="news",
+            language=language,
+            time_range=time_range,
+        )
+    except SearxngError as exc:
+        logger.error("search_news failed: %s", exc)
+        return _format({"error": str(exc), "query": query})
 
     if data.get("results"):
         data["results"] = data["results"][:max_results]
@@ -140,11 +150,15 @@ async def search_tech(
         JSON with search results focused on technical content.
     """
     max_results = min(max_results, 30)
-    data = await searxng.search(
-        query=query,
-        categories="it",
-        engines=engines,
-    )
+    try:
+        data = await searxng.search(
+            query=query,
+            categories="it",
+            engines=engines,
+        )
+    except SearxngError as exc:
+        logger.error("search_tech failed: %s", exc)
+        return _format({"error": str(exc), "query": query})
 
     if data.get("results"):
         data["results"] = data["results"][:max_results]
@@ -178,13 +192,17 @@ async def search_deep(
         JSON with deduplicated results sorted by engine consensus. Each result includes engine_count (how many engines found it).
     """
     max_results = min(max_results, 100)
-    data = await searxng.search_deep(
-        query=query,
-        categories=categories,
-        engines=engines,
-        pages=pages,
-        time_range=time_range,
-    )
+    try:
+        data = await searxng.search_deep(
+            query=query,
+            categories=categories,
+            engines=engines,
+            pages=pages,
+            time_range=time_range,
+        )
+    except SearxngError as exc:
+        logger.error("search_deep failed: %s", exc)
+        return _format({"error": str(exc), "query": query})
 
     if data.get("results"):
         data["results"] = data["results"][:max_results]
@@ -216,11 +234,16 @@ async def search_person(
         JSON with categorized results (identity, professional, business, legal, news, social, property, reddit),
         plus a deduplicated master list sorted by multi-engine consensus.
     """
-    data = await searxng.search_person(
-        name=name,
-        location=location,
-        context=context,
-    )
+    try:
+        data = await searxng.search_person(
+            name=name,
+            location=location,
+            context=context,
+        )
+    except SearxngError as exc:
+        logger.error("search_person failed: %s", exc)
+        return _format({"error": str(exc), "name": name})
+
     return _format(data)
 
 
@@ -233,7 +256,12 @@ async def get_engines() -> str:
     Returns:
         JSON with instance info, engine list (name, categories, enabled status), and available categories.
     """
-    data = await searxng.get_config()
+    try:
+        data = await searxng.get_config()
+    except SearxngError as exc:
+        logger.error("get_engines failed: %s", exc)
+        return _format({"error": str(exc)})
+
     return _format(data)
 
 

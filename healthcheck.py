@@ -1,6 +1,7 @@
 """Health check script for Docker HEALTHCHECK."""
 
 import sys
+import urllib.error
 import urllib.request
 
 
@@ -10,7 +11,7 @@ def check():
         # SSE endpoint returns 200 with text/event-stream
         if resp.status == 200:
             sys.exit(0)
-    except Exception:
+    except (urllib.error.URLError, OSError):
         pass
     sys.exit(1)
 
