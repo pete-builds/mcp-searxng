@@ -5,5 +5,8 @@
 __pycache__/
 *.pyc
 *.db
-README.md
-LICENSE
+.venv/
+dist/
+build/
+*.egg-info/
+tests/

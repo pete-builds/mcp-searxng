@@ -20,17 +20,30 @@ logger = logging.getLogger("searxng.queries")
 # Minimum seconds between requests to avoid engine rate limits
 REQUEST_DELAY = 1.0
 
+# Default in-memory cache TTL (seconds) for identical SearXNG queries
+DEFAULT_CACHE_TTL = 300
+DEFAULT_CACHE_MAXSIZE = 256
+
 
 class SearxngClient:
-    """Async SearXNG API client with rate limiting and deduplication."""
+    """Async SearXNG API client with rate limiting, dedup, and a TTL cache."""
 
-    def __init__(self, url: str):
+    def __init__(
+        self,
+        url: str,
+        cache_ttl: int = DEFAULT_CACHE_TTL,
+        cache_maxsize: int = DEFAULT_CACHE_MAXSIZE,
+    ):
         self.base_url = url.rstrip("/")
         self._client = httpx.AsyncClient(
             timeout=30,
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
         self._last_request_time = 0.0
+        self._cache_ttl = cache_ttl
+        self._cache_maxsize = cache_maxsize
+        # key -> (expires_at, value)
+        self._cache: dict[tuple, tuple[float, dict]] = {}
 
     async def _rate_limit(self):
         """Enforce minimum delay between requests."""
@@ -40,15 +53,46 @@ class SearxngClient:
             await asyncio.sleep(REQUEST_DELAY - elapsed)
         self._last_request_time = time.monotonic()
 
+    @staticmethod
+    def _cache_key(path: str, params: dict | None) -> tuple:
+        """Stable cache key from path + sorted params."""
+        if not params:
+            return (path,)
+        return (path, tuple(sorted((str(k), str(v)) for k, v in params.items())))
+
+    def _cache_get(self, key: tuple) -> dict | None:
+        entry = self._cache.get(key)
+        if entry is None:
+            return None
+        expires_at, value = entry
+        if time.monotonic() >= expires_at:
+            self._cache.pop(key, None)
+            return None
+        return value
+
+    def _cache_put(self, key: tuple, value: dict) -> None:
+        if len(self._cache) >= self._cache_maxsize:
+            # Evict oldest by expiry. Cheap O(n) — fine at maxsize=256.
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][0])
+            self._cache.pop(oldest_key, None)
+        self._cache[key] = (time.monotonic() + self._cache_ttl, value)
+
     async def _get(self, path: str, params: dict | None = None) -> dict:
-        """GET with rate limiting and one retry on connection errors."""
+        """GET with TTL cache, rate limiting, and one retry on connection errors."""
+        key = self._cache_key(path, params)
+        cached = self._cache_get(key)
+        if cached is not None:
+            return cached
+
         await self._rate_limit()
         url = f"{self.base_url}{path}"
         for attempt in range(2):
             try:
                 resp = await self._client.get(url, params=params)
                 resp.raise_for_status()
-                return resp.json()
+                data = resp.json()
+                self._cache_put(key, data)
+                return data
             except (httpx.RemoteProtocolError, httpx.ConnectError):
                 if attempt == 0:
                     continue

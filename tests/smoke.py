@@ -1,8 +1,9 @@
-"""Live smoke test for the SearxngClient.
+"""Live smoke test for SearxngClient + UrlReader.
 
-Exercises every public method against a real SearXNG instance to catch the
-class of bug a unit test with mocks would miss (e.g. wrong kwarg names that
-get swallowed by a bare except).
+Exercises every public method against a real SearXNG instance and a real
+URL fetch. Catches the class of bug a unit test with mocks would miss
+(e.g. wrong kwarg names that get swallowed by a bare except, broken
+trafilatura extraction).
 
 Usage:
     SEARXNG_URL=http://192.168.86.20:8888 python tests/smoke.py
@@ -13,9 +14,10 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from clients.searxng import SearxngClient  # noqa: E402
+from mcp_searxng.clients.reader import UrlReader  # noqa: E402
+from mcp_searxng.clients.searxng import SearxngClient  # noqa: E402
 
 
 def ok(name: str) -> None:
@@ -33,6 +35,7 @@ async def main() -> int:
         return 2
 
     client = SearxngClient(url=url)
+    reader = UrlReader()
     failures = 0
 
     print(f"Smoke test against {url}\n")
@@ -59,6 +62,20 @@ async def main() -> int:
         fail("search it category", e); failures += 1
 
     try:
+        data = await client.search(query="grand canyon", categories="images")
+        assert data["results"], "image search returned no results"
+        ok("search images category")
+    except Exception as e:
+        fail("search images category", e); failures += 1
+
+    try:
+        data = await client.search(query="phish wilson", categories="videos")
+        assert data["results"], "video search returned no results"
+        ok("search videos category")
+    except Exception as e:
+        fail("search videos category", e); failures += 1
+
+    try:
         data = await client.search_deep(query="model context protocol", pages=2)
         assert data["results"], "search_deep returned no results"
         assert all("engine_count" in r for r in data["results"]), "missing engine_count"
@@ -80,6 +97,25 @@ async def main() -> int:
         ok("get_config")
     except Exception as e:
         fail("get_config", e); failures += 1
+
+    # Cache hit check: same query immediately should bypass network
+    try:
+        first = await client.search(query="cache test query", categories="general")
+        cached = await client.search(query="cache test query", categories="general")
+        assert first["results"] == cached["results"], "cache returned different payload"
+        ok("ttl cache")
+    except Exception as e:
+        fail("ttl cache", e); failures += 1
+
+    # URL reader against a stable text-heavy page
+    try:
+        data = await reader.read("https://en.wikipedia.org/wiki/Model_Context_Protocol")
+        assert data["markdown"], "reader returned empty markdown"
+        assert data["length"] > 500, f"markdown too short: {data['length']}"
+        assert "trafilatura" == data["extraction"], "fell back to raw extraction"
+        ok("read_url (wikipedia)")
+    except Exception as e:
+        fail("read_url (wikipedia)", e); failures += 1
 
     print(f"\n{'OK' if failures == 0 else 'FAILED'}: {failures} failure(s)")
     return 1 if failures else 0

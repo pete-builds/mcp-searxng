@@ -1,9 +1,13 @@
 FROM python:3.13-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+COPY pyproject.toml README.md LICENSE ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.13-slim
 
@@ -14,14 +18,11 @@ RUN groupadd --system --gid 1000 mcp \
 
 COPY --from=builder /install /usr/local
 
-COPY clients/ ./clients/
-COPY server.py healthcheck.py ./
-
 USER mcp
 
 EXPOSE 3702
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python healthcheck.py || exit 1
+    CMD ["python", "-m", "mcp_searxng.healthcheck"]
 
-CMD ["python", "server.py"]
+CMD ["mcp-searxng"]
