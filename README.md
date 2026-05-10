@@ -89,14 +89,15 @@ docker compose up -d
 
 Default port: **3702** (SSE transport).
 
-### Option 2: pip
+### Option 2: install from git (no PyPI)
 
 ```bash
-pip install mcp-searxng-vet
-SEARXNG_URL=http://your-host:8888 mcp-searxng
+uvx --from git+https://github.com/pete-builds/mcp-searxng mcp-searxng
+# or pin a tag:
+uvx --from git+https://github.com/pete-builds/mcp-searxng@v0.2.0 mcp-searxng
 ```
 
-(Package name on PyPI differs from the repo name because `mcp-searxng` was already taken.)
+Set `SEARXNG_URL=http://your-host:8888` in the environment first.
 
 ---
 

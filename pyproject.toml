@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-searxng-vet"
+name = "mcp-searxng"
 version = "0.2.0"
 description = "MCP server wrapping a self-hosted SearXNG instance. Web/news/tech/image/video search, multi-page consensus ranking, URL→markdown reading, and an 8-angle person fan-out for due diligence."
 readme = "README.md"
