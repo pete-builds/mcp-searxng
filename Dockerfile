@@ -9,11 +9,15 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+RUN groupadd --system --gid 1000 mcp \
+    && useradd --system --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin mcp
+
 COPY --from=builder /install /usr/local
 
 COPY clients/ ./clients/
-COPY server.py .
-COPY healthcheck.py .
+COPY server.py healthcheck.py ./
+
+USER mcp
 
 EXPOSE 3702
 

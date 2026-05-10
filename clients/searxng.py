@@ -82,15 +82,11 @@ class SearxngClient:
             if not url:
                 continue
             if url in seen:
-                # Track additional engines that found this result
                 existing = seen[url]
-                existing_engines = existing.get("engines", [existing.get("engine", "?")])
                 new_engine = r.get("engine", "?")
-                if new_engine not in existing_engines:
-                    existing_engines.append(new_engine)
-                existing["engines"] = existing_engines
-                existing["engine_count"] = len(existing_engines)
-                # Boost score for multi-engine results
+                if new_engine not in existing["engines"]:
+                    existing["engines"].append(new_engine)
+                    existing["engine_count"] = len(existing["engines"])
                 existing["score"] = existing.get("score", 0) + r.get("score", 0)
             else:
                 seen[url] = {**r, "engines": [r.get("engine", "?")], "engine_count": 1}
@@ -222,9 +218,10 @@ class SearxngClient:
     ) -> dict:
         """Fan out multiple targeted searches for a person and merge results.
 
-        Runs parallel searches across: general web, LinkedIn, business filings,
+        Runs targeted searches across: general web, LinkedIn, business filings,
         court/legal, news, social media, and property records. Deduplicates
-        across all results.
+        across all results. Calls are sequential to respect the SearXNG
+        rate limiter.
 
         Args:
             name: Full name of the person (will be quoted in searches).
@@ -270,9 +267,8 @@ class SearxngClient:
                 data = await self.search(
                     query=query,
                     categories=category_map[label],
-                    max_results=20,
                 )
-                results = data.get("results", [])
+                results = data.get("results", [])[:20]
                 # Tag each result with the search category
                 for r in results:
                     r["search_category"] = label
