@@ -87,7 +87,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Default port: **3702** (SSE transport).
+Default port: **3702** (Streamable HTTP transport).
 
 ### Option 2: install from git (no PyPI)
 
@@ -107,8 +107,8 @@ Set `SEARXNG_URL=http://your-host:8888` in the environment first.
 {
   "mcpServers": {
     "searxng": {
-      "type": "sse",
-      "url": "http://localhost:3702/sse"
+      "type": "http",
+      "url": "http://localhost:3702/mcp"
     }
   }
 }
