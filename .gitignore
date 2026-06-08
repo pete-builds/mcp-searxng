@@ -6,3 +6,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Per-host compose override (homelab uses host networking; not for public repo)
+docker-compose.override.yml
