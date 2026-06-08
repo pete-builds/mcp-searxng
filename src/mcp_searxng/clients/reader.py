@@ -10,6 +10,8 @@ import logging
 import httpx
 import trafilatura
 
+from mcp_searxng.clients.ssrf import validate_url
+
 logger = logging.getLogger("searxng.reader")
 
 DEFAULT_TIMEOUT = 20
@@ -36,8 +38,14 @@ class UrlReader:
         """Fetch URL and return {url, title, markdown, length, fetched_status}.
 
         Raises httpx errors on network failure, ValueError if the response is too
-        large or has no extractable content.
+        large or has no extractable content, and SsrfError if the URL targets a
+        private/loopback/link-local/reserved address or a non-http(s) scheme.
         """
+        # SSRF guard: reject non-http(s) schemes and any URL whose host resolves
+        # to a private/loopback/link-local/reserved/multicast address before we
+        # ever open a connection.
+        validate_url(url)
+
         resp = await self._client.get(url)
         resp.raise_for_status()
 

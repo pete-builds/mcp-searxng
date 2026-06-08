@@ -2,7 +2,7 @@
 
 Provides Claude Code tools for web search, news, deep multi-page search,
 person/people-vetting fan-out, image and video search, and URL reading
-via the Model Context Protocol (SSE transport).
+via the Model Context Protocol (Streamable HTTP transport).
 
 Designed as a grounded search backend for the /research and /vet skills.
 """
@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 
 from mcp_searxng.clients.reader import UrlReader
 from mcp_searxng.clients.searxng import SearxngClient
+from mcp_searxng.clients.ssrf import SsrfError
 
 load_dotenv()
 
@@ -284,9 +285,16 @@ async def read_url(url: str, max_chars: int = 0) -> str:
     Returns:
         JSON with {url, title, markdown, length, fetched_status, extraction}.
         On failure (timeout, 4xx/5xx, no extractable content) returns {error, url}.
+        URLs that target private/loopback/link-local/reserved addresses or a
+        non-http(s) scheme are rejected before any fetch with
+        {error, code: "BLOCKED_URL", url}.
     """
     try:
         data = await reader.read(url)
+    except SsrfError as e:
+        return _format(
+            {"error": f"URL rejected by SSRF guard: {e}", "code": "BLOCKED_URL", "url": url}
+        )
     except Exception as e:
         return _format({"error": f"{type(e).__name__}: {e}", "url": url})
 
@@ -324,8 +332,8 @@ def main() -> None:
     port = os.getenv("FASTMCP_PORT", os.getenv("MCP_PORT", "3702"))
     os.environ["FASTMCP_HOST"] = host
     os.environ["FASTMCP_PORT"] = str(port)
-    print(f"Starting MCP SearXNG on {host}:{port} (SSE transport)")
-    mcp.run(transport="sse")
+    print(f"Starting MCP SearXNG on {host}:{port} (Streamable HTTP transport)")
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
