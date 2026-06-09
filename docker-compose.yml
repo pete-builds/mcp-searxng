@@ -1,6 +1,9 @@
 services:
   mcp-searxng:
-    build: .
+    # Pull the published image by default. To build locally instead, comment
+    # out `image:` and uncomment `build: .`.
+    image: ghcr.io/pete-builds/mcp-searxng:0.2.0
+    # build: .
     container_name: mcp-searxng
     restart: unless-stopped
     network_mode: host
