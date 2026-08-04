@@ -29,6 +29,7 @@ dependencies = [
     "uvicorn>=0.51.0",
     "python-dotenv>=1.1.0",
     "trafilatura>=2.1.0",
+    "pete-mcp-core>=0.1.0",
 ]
 
 [project.optional-dependencies]

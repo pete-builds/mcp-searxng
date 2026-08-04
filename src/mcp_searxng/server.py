@@ -7,13 +7,19 @@ via the Model Context Protocol (Streamable HTTP transport).
 Designed as a grounded search backend for the /research and /vet skills.
 """
 
-import json
 import logging
-import os
 import sys
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from pete_mcp_core import (
+    build_auth_provider,
+    configure_logging,
+    format_response,
+    run_server,
+)
+from pete_mcp_core.settings import BaseCoreSettings
+from pydantic import AliasChoices, Field, ValidationError
 
 from mcp_searxng.clients.reader import UrlReader
 from mcp_searxng.clients.searxng import SearxngClient
@@ -21,31 +27,51 @@ from mcp_searxng.clients.ssrf import SsrfError
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(name)s  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
-SEARXNG_URL = os.getenv("SEARXNG_URL")
+class SearxngSettings(BaseCoreSettings):
+    searxng_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("SEARXNG_URL", "MCP_SEARXNG_URL"),
+        description="SearXNG base URL (e.g. http://your-searxng-host:8888).",
+    )
+    searxng_cache_ttl: int = Field(
+        default=300,
+        validation_alias=AliasChoices("SEARXNG_CACHE_TTL", "MCP_SEARXNG_CACHE_TTL"),
+        description="Result cache TTL in seconds.",
+    )
 
-if not SEARXNG_URL:
+
+try:
+    settings = SearxngSettings()
+except ValidationError as exc:
+    print(f"FATAL: invalid configuration: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+if not settings.searxng_url:
     print("FATAL: Missing required environment variable:", file=sys.stderr)
     print("  SEARXNG_URL (SearXNG base URL, e.g. http://your-searxng-host:8888)", file=sys.stderr)
     print("\nCopy .env.example to .env and fill in your values.", file=sys.stderr)
     sys.exit(1)
 
-CACHE_TTL = int(os.getenv("SEARXNG_CACHE_TTL", "300"))
+configure_logging(settings.log_level, settings.log_format)
+logger = logging.getLogger("searxng")
 
-searxng = SearxngClient(url=SEARXNG_URL, cache_ttl=CACHE_TTL)
+searxng = SearxngClient(url=settings.searxng_url, cache_ttl=settings.searxng_cache_ttl)
 reader = UrlReader()
 
-mcp = FastMCP("SearXNG Search")
+mcp = FastMCP(
+    "SearXNG Search",
+    auth=build_auth_provider(
+        settings.auth_token,
+        client_id="searxng",
+        required=settings.auth_required,
+        logger=logger,
+    ),
+)
 
 
-def _format(data: object) -> str:
-    """Format response data as readable JSON string."""
-    return json.dumps(data, indent=2, default=str)
+# Kept as an alias so the ~12 existing `_format(...)` call sites stay identical.
+_format = format_response
 
 
 # ============================================================
@@ -328,12 +354,7 @@ async def get_engines() -> str:
 
 
 def main() -> None:
-    host = os.getenv("FASTMCP_HOST", os.getenv("MCP_HOST", "0.0.0.0"))
-    port = os.getenv("FASTMCP_PORT", os.getenv("MCP_PORT", "3702"))
-    os.environ["FASTMCP_HOST"] = host
-    os.environ["FASTMCP_PORT"] = str(port)
-    print(f"Starting MCP SearXNG on {host}:{port} (Streamable HTTP transport)")
-    mcp.run(transport="streamable-http")
+    run_server(mcp, default_port=3702, default_transport="streamable-http")
 
 
 if __name__ == "__main__":
