@@ -29,14 +29,16 @@ dependencies = [
     "uvicorn>=0.51.0",
     "python-dotenv>=1.1.0",
     "trafilatura>=2.1.0",
-    "pete-mcp-core>=0.1.0",
+    # Pinned to an immutable commit tarball until pete-mcp-core is on PyPI.
+    # Revert to "pete-mcp-core>=0.1.0" once it publishes.
+    "pete-mcp-core @ https://github.com/pete-builds/pete-mcp-core/archive/15d210625cfcf1840b6b6e95cf10990214585104.tar.gz",
 ]
 
 [project.optional-dependencies]
 dev = [
     "build>=1.5.0",
     "twine>=6.2.0",
-    "ruff>=0.15.17",
+    "ruff>=0.15.17,<0.16",
     "pytest>=9.1.1",
 ]
 
@@ -47,6 +49,11 @@ mcp-searxng = "mcp_searxng.server:main"
 Homepage = "https://github.com/pete-builds/mcp-searxng"
 Repository = "https://github.com/pete-builds/mcp-searxng"
 Issues = "https://github.com/pete-builds/mcp-searxng/issues"
+
+[tool.hatch.metadata]
+# Required for the pete-mcp-core commit-tarball pin above. Can be dropped
+# once that dependency reverts to a plain PyPI version specifier.
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_searxng"]
