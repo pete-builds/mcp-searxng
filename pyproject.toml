@@ -24,11 +24,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp>=3.4.4",
+    "fastmcp>=3.4.6",
     "httpx>=0.28.1",
-    "uvicorn>=0.51.0",
+    "uvicorn>=0.52.1",
     "python-dotenv>=1.1.0",
-    "trafilatura>=2.1.0",
+    "trafilatura>=2.2.0",
     # Pinned to an immutable commit tarball until pete-mcp-core is on PyPI.
     # Revert to "pete-mcp-core>=0.1.0" once it publishes.
     "pete-mcp-core @ https://github.com/pete-builds/pete-mcp-core/archive/15d210625cfcf1840b6b6e95cf10990214585104.tar.gz",
