@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-searxng"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server wrapping a self-hosted SearXNG instance. Web/news/tech/image/video search, multi-page consensus ranking, URL→markdown reading, and an 8-angle person fan-out for due diligence."
 readme = "README.md"
 license = { file = "LICENSE" }
