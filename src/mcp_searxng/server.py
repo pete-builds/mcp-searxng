@@ -74,12 +74,36 @@ mcp = FastMCP(
 _format = format_response
 
 
+# --- Tool annotations ---
+# This server is entirely read-only: nine tools, none of which writes anything
+# anywhere. That is worth DECLARING rather than leaving to be inferred, because
+# an unannotated read-only server and an unannotated server full of delete
+# tools are indistinguishable in the manifest. A client trying to be careful
+# has to be careful about everything, which in practice means being careful
+# about nothing.
+#
+# Read-only is not the same as harmless, and the annotations do not claim it
+# is. read_url fetches an attacker-influenceable page, and the search tools
+# return text a caller did not write. That risk is handled by the SSRF
+# validation and redirect checks in clients/, not by a hint -- these hints
+# describe EFFECTS on the world, and the effect of every tool here is none.
+
+#: Reads only, over the network. Safe to repeat: an answer may differ between
+#: two identical calls because the web moved, not because the call changed it.
+READ_ONLY = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}
+
+
 # ============================================================
 # Person / vetting (the headline tool)
 # ============================================================
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_person(
     name: str,
     location: str = "",
@@ -111,7 +135,7 @@ async def search_person(
 # ============================================================
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search(
     query: str,
     categories: str = "general",
@@ -148,7 +172,7 @@ async def search(
     return _format(data)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_news(
     query: str,
     time_range: str = "week",
@@ -178,7 +202,7 @@ async def search_news(
     return _format(data)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_tech(
     query: str,
     engines: str = "",
@@ -201,7 +225,7 @@ async def search_tech(
     return _format(data)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_deep(
     query: str,
     categories: str = "general",
@@ -239,7 +263,7 @@ async def search_deep(
     return _format(data)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_images(
     query: str,
     max_results: int = 15,
@@ -262,7 +286,7 @@ async def search_images(
     return _format(data)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_videos(
     query: str,
     max_results: int = 10,
@@ -297,7 +321,7 @@ async def search_videos(
 # ============================================================
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def read_url(url: str, max_chars: int = 0) -> str:
     """Fetch a URL and return its main content as clean markdown.
 
@@ -335,7 +359,7 @@ async def read_url(url: str, max_chars: int = 0) -> str:
 # ============================================================
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def get_engines() -> str:
     """List enabled search engines and categories on this SearXNG instance.
 
