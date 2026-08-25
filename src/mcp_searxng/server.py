@@ -313,7 +313,8 @@ async def read_url(url: str, max_chars: int = 0) -> str:
         On failure (timeout, 4xx/5xx, no extractable content) returns {error, url}.
         URLs that target private/loopback/link-local/reserved addresses or a
         non-http(s) scheme are rejected before any fetch with
-        {error, code: "BLOCKED_URL", url}.
+        {error, code: "BLOCKED_URL", url}. Redirect targets are held to the same
+        check on every hop, so a public host cannot bounce the fetch inward.
     """
     try:
         data = await reader.read(url)
