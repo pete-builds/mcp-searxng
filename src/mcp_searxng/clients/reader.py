@@ -18,6 +18,10 @@ DEFAULT_TIMEOUT = 20
 DEFAULT_MAX_BYTES = 5_000_000  # 5 MB
 
 
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+MAX_REDIRECTS = 5
+
+
 class UrlReader:
     """Fetch a URL and return clean markdown."""
 
@@ -27,27 +31,55 @@ class UrlReader:
         max_bytes: int = DEFAULT_MAX_BYTES,
         user_agent: str = "mcp-searxng/0.2 (+https://github.com/pete-builds/mcp-searxng)",
     ):
+        # follow_redirects is deliberately OFF. validate_url runs once, on the URL
+        # the caller supplied, so httpx following a 302 for us meant the guard
+        # covered only the first hop: an attacker-controlled host that passes
+        # validation could answer 302 to 127.0.0.1 or a LAN address and the
+        # internal response came straight back to the agent. Redirects are walked
+        # manually below so every hop is validated. mcp-cloakroom reached the same
+        # conclusion for the same reason -- "a redirect target is a URL we did not
+        # vet" -- and simply refuses to follow at all.
         self._client = httpx.AsyncClient(
             timeout=timeout,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": user_agent},
         )
         self._max_bytes = max_bytes
+
+    async def _fetch_validating_every_hop(self, url: str) -> httpx.Response:
+        """GET ``url``, re-running the SSRF guard on each redirect target.
+
+        Validating only the caller-supplied URL is not enough. The guard resolves
+        the hostname and rejects private addresses, which is exactly the check a
+        redirect is designed to slip past: the first host is public and passes,
+        and the Location header then points inward. Every hop gets the same
+        treatment, and the chain is bounded so a redirect loop cannot spin.
+        """
+        current = url
+        for _ in range(MAX_REDIRECTS + 1):
+            validate_url(current)
+            resp = await self._client.get(current)
+            if resp.status_code not in _REDIRECT_STATUSES:
+                resp.raise_for_status()
+                return resp
+            location = resp.headers.get("location")
+            if not location:
+                resp.raise_for_status()
+                return resp
+            # Relative Locations are legal; resolve against the URL we just fetched
+            # so the next validate_url call sees a real absolute target.
+            current = str(resp.url.join(location))
+        raise ValueError(f"too many redirects (limit {MAX_REDIRECTS}) starting from {url}")
 
     async def read(self, url: str) -> dict:
         """Fetch URL and return {url, title, markdown, length, fetched_status}.
 
         Raises httpx errors on network failure, ValueError if the response is too
-        large or has no extractable content, and SsrfError if the URL targets a
+        large, has no extractable content, or exceeds the redirect limit, and
+        SsrfError if the URL -- or any redirect hop -- targets a
         private/loopback/link-local/reserved address or a non-http(s) scheme.
         """
-        # SSRF guard: reject non-http(s) schemes and any URL whose host resolves
-        # to a private/loopback/link-local/reserved/multicast address before we
-        # ever open a connection.
-        validate_url(url)
-
-        resp = await self._client.get(url)
-        resp.raise_for_status()
+        resp = await self._fetch_validating_every_hop(url)
 
         if len(resp.content) > self._max_bytes:
             raise ValueError(
