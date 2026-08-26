@@ -40,6 +40,8 @@ dev = [
     "twine>=7.0.0",
     "ruff>=0.16.2,<0.17",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
 ]
 
 [project.scripts]

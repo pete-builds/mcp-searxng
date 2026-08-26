@@ -39,7 +39,7 @@ class TestRedirectHopsAreValidated:
 
     @pytest.mark.asyncio
     @respx.mock
-    async def test_redirect_to_loopback_is_blocked(self) -> None:
+    async def test_redirect_to_loopback_is_blocked(self, public_dns) -> None:
         respx.get("https://public.example/start").mock(
             return_value=httpx.Response(302, headers={"location": "http://127.0.0.1:3706/"})
         )
@@ -49,7 +49,7 @@ class TestRedirectHopsAreValidated:
 
     @pytest.mark.asyncio
     @respx.mock
-    async def test_redirect_to_private_lan_is_blocked(self) -> None:
+    async def test_redirect_to_private_lan_is_blocked(self, public_dns) -> None:
         respx.get("https://public.example/start").mock(
             return_value=httpx.Response(302, headers={"location": "http://192.168.86.20:3706/"})
         )
