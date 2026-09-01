@@ -102,11 +102,16 @@ class SearxngClient:
         """Extract useful fields from raw SearXNG results."""
         results = []
         for r in data.get("results", []):
+            # SearXNG merges cross-engine hits itself and reports `engines`.
+            # Keep it: it is the only corroboration signal in the payload.
+            engines = r.get("engines") or ([r["engine"]] if r.get("engine") else [])
             result = {
                 "title": r.get("title"),
                 "url": r.get("url"),
                 "content": r.get("content"),
                 "engine": r.get("engine"),
+                "engines": sorted(set(engines)),
+                "engine_count": len(set(engines)),
             }
             if r.get("publishedDate"):
                 result["published_date"] = r["publishedDate"]
@@ -118,6 +123,61 @@ class SearxngClient:
         return results
 
     @staticmethod
+    def _provenance(data: dict, shaped: list[dict]) -> dict:
+        """Summarise which engines produced this result set, and flag single-source.
+
+        Reads provenance metadata only, never result content, because search
+        results are untrusted input.
+
+        On 2026-08-27 every general engine but bing was CAPTCHA-blocked. Bing
+        returns unrelated filler rather than an empty set for terms it has no
+        index for, and SearXNG still reported unresponsive_engines=[], so a junk
+        result set looked exactly like a healthy one and reached a research
+        report. `degraded` plus `warning` is what makes those two distinguishable.
+        """
+        contributing: set[str] = set()
+        corroborated = 0
+        single = 0
+        for r in shaped:
+            engines = r.get("engines") or []
+            contributing.update(engines)
+            if len(engines) >= 2:
+                corroborated += 1
+            elif len(engines) == 1:
+                single += 1
+
+        unresponsive = data.get("unresponsive_engines") or []
+        engine_count = len(contributing)
+        degraded = engine_count < 2
+
+        warning = None
+        if degraded:
+            if not shaped:
+                warning = (
+                    "DEGRADED: no engine returned any result. "
+                    "%d engine(s) were unresponsive. This is not evidence of absence."
+                ) % len(unresponsive)
+            else:
+                warning = (
+                    "DEGRADED: all %d results came from a single engine (%s) with no "
+                    "cross-engine corroboration, and %d engine(s) were unresponsive. "
+                    "A single engine returns unrelated filler rather than an empty set "
+                    "for terms it has no index for, so these results may be irrelevant "
+                    "even though the query succeeded. Treat them as low confidence and "
+                    "verify before citing."
+                ) % (len(shaped), ", ".join(sorted(contributing)) or "unknown", len(unresponsive))
+
+        return {
+            "engine_count": engine_count,
+            "engines_contributing": sorted(contributing),
+            "corroborated_results": corroborated,
+            "single_engine_results": single,
+            "unresponsive_engines": unresponsive,
+            "degraded": degraded,
+            "warning": warning,
+        }
+
+    @staticmethod
     def deduplicate(results: list[dict]) -> list[dict]:
         """Deduplicate results by URL. Boost score for results found by multiple engines."""
         seen = {}
@@ -125,15 +185,16 @@ class SearxngClient:
             url = r.get("url", "")
             if not url:
                 continue
+            incoming = r.get("engines") or ([r["engine"]] if r.get("engine") else ["?"])
             if url in seen:
                 existing = seen[url]
-                new_engine = r.get("engine", "?")
-                if new_engine not in existing["engines"]:
-                    existing["engines"].append(new_engine)
-                    existing["engine_count"] = len(existing["engines"])
+                merged = sorted(set(existing["engines"]) | set(incoming))
+                existing["engines"] = merged
+                existing["engine_count"] = len(merged)
                 existing["score"] = existing.get("score", 0) + r.get("score", 0)
             else:
-                seen[url] = {**r, "engines": [r.get("engine", "?")], "engine_count": 1}
+                seen[url] = {**r, "engines": sorted(set(incoming)),
+                             "engine_count": len(set(incoming))}
         # Sort by engine_count (multi-engine first), then score
         deduped = sorted(seen.values(), key=lambda x: (x["engine_count"], x.get("score", 0)), reverse=True)
         return deduped
@@ -188,6 +249,7 @@ class SearxngClient:
         return {
             "query": data.get("query"),
             "number_of_results": data.get("number_of_results", len(results)),
+            "provenance": self._provenance(data, results),
             "results": results,
             "suggestions": data.get("suggestions", []),
             "corrections": data.get("corrections", []),
@@ -225,6 +287,7 @@ class SearxngClient:
         """
         pages = min(pages, 5)
         all_results = []
+        deep_unresponsive: list = []
 
         for page_num in range(1, pages + 1):
             data = await self.search(
@@ -236,6 +299,9 @@ class SearxngClient:
                 time_range=time_range,
             )
             page_results = data.get("results", [])
+            for entry in (data.get("provenance") or {}).get("unresponsive_engines") or []:
+                if entry not in deep_unresponsive:
+                    deep_unresponsive.append(entry)
             if not page_results:
                 break  # No more results
             all_results.extend(page_results)
@@ -247,10 +313,12 @@ class SearxngClient:
             query, pages, len(all_results), len(deduped),
         )
 
+        # Aggregate unresponsive engines across pages; each page reports its own.
         return {
             "query": query,
             "number_of_results": len(deduped),
             "pages_fetched": pages,
+            "provenance": self._provenance({"unresponsive_engines": deep_unresponsive}, deduped),
             "results": deduped,
         }
 
