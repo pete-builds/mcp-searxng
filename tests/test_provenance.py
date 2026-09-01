@@ -10,10 +10,15 @@ boundary. It reached a research report as if it were real sources.
 These tests pin the signal that makes the two distinguishable.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# server.py exits at import when SEARXNG_URL is unset. No request is made:
+# the manifest is built from the registered tools, not from the instance.
+os.environ.setdefault("SEARXNG_URL", "http://searxng.invalid:8888")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -118,3 +123,31 @@ class TestEnvelope:
         assert env["provenance"]["degraded"] is True
         # results must NOT be filtered out; visibility, not suppression
         assert len(env["results"]) == 10
+
+
+class TestToolDescriptionsCarryTheContract:
+    """FastMCP truncates a tool description at `Args:`.
+
+    Anything under `Returns:` never reaches the model, so the provenance
+    contract has to live above `Args:` or the caller is never told the gate
+    exists. Pin the RENDERED description, not the source docstring.
+    """
+
+    PROVENANCE_TOOLS = [
+        "search", "search_news", "search_tech",
+        "search_deep", "search_images", "search_videos",
+    ]
+
+    def test_rendered_description_mentions_provenance(self):
+        import asyncio
+
+        from mcp_searxng.server import mcp
+
+        tools = {t.name: t for t in asyncio.run(mcp.list_tools())}
+        for name in self.PROVENANCE_TOOLS:
+            desc = tools[name].description or ""
+            assert "provenance" in desc, (
+                "%s: description does not mention provenance. It is probably "
+                "below Args: and therefore truncated away." % name
+            )
+            assert "degraded" in desc, "%s: description omits the degraded flag" % name

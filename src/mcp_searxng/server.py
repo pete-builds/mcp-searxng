@@ -148,6 +148,13 @@ async def search(
 
     Best for: general web queries, finding documentation, researching topics, looking up facts.
 
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
+
     Args:
         query: Search query string. Be specific for better results.
         categories: Comma-separated categories. Options: general, images, news, videos, it, science, files, music, social media. Default: general.
@@ -181,6 +188,13 @@ async def search_news(
 ) -> str:
     """Search recent news articles. Defaults to last week.
 
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
+
     Args:
         query: News search query.
         time_range: Time filter: day, week, month, year (default: week).
@@ -210,6 +224,13 @@ async def search_tech(
 ) -> str:
     """Search technical/IT content: documentation, Stack Overflow, GitHub, wikis.
 
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
+
     Args:
         query: Technical search query (e.g. "fastmcp SSE transport python").
         engines: Restrict to specific engines (optional). Empty = all IT engines.
@@ -238,6 +259,13 @@ async def search_deep(
 
     Results found by multiple engines are boosted. Use this when you need
     comprehensive, trustworthy coverage on a topic or person.
+
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
 
     Args:
         query: Search query string.
@@ -271,6 +299,13 @@ async def search_images(
 ) -> str:
     """Search the web for images.
 
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
+
     Args:
         query: Image search query.
         max_results: Maximum number of image results (default: 15, max: 50).
@@ -294,6 +329,13 @@ async def search_videos(
     time_range: str = "",
 ) -> str:
     """Search the web for videos.
+
+    Check `provenance` in the response before trusting the results. When
+    `provenance.degraded` is true, every result came from a single engine with no
+    cross-engine corroboration, which happens when the other engines are blocked.
+    A single engine returns unrelated filler rather than an empty set for terms it
+    has no index for, so a degraded response can be entirely irrelevant even though
+    the query succeeded. `provenance.warning` says so in words when it fires.
 
     Args:
         query: Video search query.
