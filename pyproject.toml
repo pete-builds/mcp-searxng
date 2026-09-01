@@ -27,7 +27,7 @@ dependencies = [
     "fastmcp>=3.4.7",
     "httpx>=0.28.1",
     "uvicorn>=0.52.4",
-    "python-dotenv>=1.1.0",
+    "python-dotenv>=1.2.3",
     "trafilatura>=2.2.0",
     # Pinned to an immutable commit tarball until pete-mcp-core is on PyPI.
     # Revert to "pete-mcp-core>=0.1.0" once it publishes.
