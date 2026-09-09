@@ -10,7 +10,7 @@ import logging
 import httpx
 import trafilatura
 
-from mcp_searxng.clients.ssrf import validate_url
+from mcp_searxng.clients.ssrf import resolve_url
 
 logger = logging.getLogger("searxng.reader")
 
@@ -46,7 +46,28 @@ class UrlReader:
         )
         self._max_bytes = max_bytes
 
-    async def _fetch_validating_every_hop(self, url: str) -> httpx.Response:
+    async def _get_pinned(self, url: str) -> httpx.Response:
+        """GET ``url`` at the address the guard vetted, never a fresh lookup.
+
+        The guard resolves the hostname once. Handing the hostname back to httpx
+        would resolve it a second time, and nothing forces that answer to match:
+        a hostile authoritative server can say "public" to the guard and
+        "127.0.0.1" to httpx (DNS rebinding). So the request goes to the vetted
+        address as a literal, with the original ``Host`` header so the origin
+        serves the right site and ``sni_hostname`` so TLS still verifies the
+        certificate against the real name rather than the IP.
+        """
+        target = resolve_url(url)
+        original = httpx.URL(url)
+        pinned = original.copy_with(host=target.address)
+        extensions = {"sni_hostname": target.host} if original.scheme == "https" else {}
+        return await self._client.get(
+            pinned,
+            headers={"Host": original.netloc.decode("ascii")},
+            extensions=extensions,
+        )
+
+    async def _fetch_validating_every_hop(self, url: str) -> tuple[httpx.Response, str]:
         """GET ``url``, re-running the SSRF guard on each redirect target.
 
         Validating only the caller-supplied URL is not enough. The guard resolves
@@ -54,21 +75,26 @@ class UrlReader:
         redirect is designed to slip past: the first host is public and passes,
         and the Location header then points inward. Every hop gets the same
         treatment, and the chain is bounded so a redirect loop cannot spin.
+
+        Returns the final response and the URL it came from, in the hostname
+        form the chain produced (the response's own URL carries the pinned
+        address, which is an implementation detail callers must not see).
         """
         current = url
         for _ in range(MAX_REDIRECTS + 1):
-            validate_url(current)
-            resp = await self._client.get(current)
+            resp = await self._get_pinned(current)
             if resp.status_code not in _REDIRECT_STATUSES:
                 resp.raise_for_status()
-                return resp
+                return resp, current
             location = resp.headers.get("location")
             if not location:
                 resp.raise_for_status()
-                return resp
+                return resp, current
             # Relative Locations are legal; resolve against the URL we just fetched
-            # so the next validate_url call sees a real absolute target.
-            current = str(resp.url.join(location))
+            # so the next guard call sees a real absolute target. Join against the
+            # hostname form, not resp.url, or a relative Location would inherit the
+            # pinned address and skip the name-based check on the next hop.
+            current = str(httpx.URL(current).join(location))
         raise ValueError(f"too many redirects (limit {MAX_REDIRECTS}) starting from {url}")
 
     async def read(self, url: str) -> dict:
@@ -79,7 +105,7 @@ class UrlReader:
         SsrfError if the URL -- or any redirect hop -- targets a
         private/loopback/link-local/reserved address or a non-http(s) scheme.
         """
-        resp = await self._fetch_validating_every_hop(url)
+        resp, final_url = await self._fetch_validating_every_hop(url)
 
         if len(resp.content) > self._max_bytes:
             raise ValueError(
@@ -91,7 +117,7 @@ class UrlReader:
             # Plain text / JSON / etc — return as-is
             text = resp.text
             return {
-                "url": str(resp.url),
+                "url": final_url,
                 "title": None,
                 "markdown": text,
                 "length": len(text),
@@ -117,7 +143,7 @@ class UrlReader:
             raise ValueError("no extractable main content")
 
         return {
-            "url": str(resp.url),
+            "url": final_url,
             "title": title,
             "markdown": markdown,
             "length": len(markdown),
