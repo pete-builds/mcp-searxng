@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "build>=1.6.0",
+    "build>=1.6.1",
     "twine>=7.0.0",
     "ruff>=0.16.6,<0.17",
     "pytest>=9.1.1",
