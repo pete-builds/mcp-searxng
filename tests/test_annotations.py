@@ -53,11 +53,11 @@ def test_every_tool_is_read_only(tools):
     That is the point: the failure is a prompt to classify the new tool
     deliberately, not an obstacle to adding one.
     """
-    assert sorted(n for n, t in tools.items() if not t.annotations.readOnlyHint) == []
+    assert sorted(n for n, t in tools.items() if not t.annotations.read_only_hint) == []
 
 
 def test_nothing_claims_to_be_destructive(tools):
-    assert sorted(n for n, t in tools.items() if t.annotations.destructiveHint) == []
+    assert sorted(n for n, t in tools.items() if t.annotations.destructive_hint) == []
 
 
 def test_every_tool_declares_an_open_world(tools):
@@ -66,6 +66,6 @@ def test_every_tool_declares_an_open_world(tools):
     Which is a different thing from the call having changed it, and is why
     these are open-world AND idempotent at the same time.
     """
-    closed = sorted(n for n, t in tools.items() if t.annotations.openWorldHint is not True)
+    closed = sorted(n for n, t in tools.items() if t.annotations.open_world_hint is not True)
     assert closed == []
-    assert sorted(n for n, t in tools.items() if not t.annotations.idempotentHint) == []
+    assert sorted(n for n, t in tools.items() if not t.annotations.idempotent_hint) == []
