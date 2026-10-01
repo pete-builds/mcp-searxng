@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp>=3.4.7",
+    "fastmcp>=4.0.10,<5",
     "httpx>=0.28.1",
     "uvicorn>=0.52.4",
     "python-dotenv>=1.2.3",
@@ -78,3 +78,9 @@ include = [
 # surface is now a property of this repo rather than of whichever ruff resolves.
 # Adding rules is a deliberate edit here, never a side effect of a bump.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+# MCP SDK v2 renamed protocol fields to snake_case and FastMCP 4 keeps the old
+# camelCase reads alive through a deprecation bridge slated for removal. Fail
+# on the warning now, so the bridge's removal can never be the first notice.
+filterwarnings = ["error::fastmcp.FastMCPDeprecationWarning"]
