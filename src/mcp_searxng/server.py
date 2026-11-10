@@ -9,6 +9,7 @@ Designed as a grounded search backend for the /research and /vet skills.
 
 import logging
 import sys
+from typing import Literal
 
 import fastmcp
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ from pete_mcp_core import (
     format_response,
     run_server,
 )
+from pete_mcp_core.auth import AuthRequiredError
 from pete_mcp_core.settings import BaseCoreSettings
 from pydantic import AliasChoices, Field, ValidationError
 
@@ -29,8 +31,19 @@ from mcp_searxng.clients.ssrf import SsrfError
 
 load_dotenv()
 
+#: What this server serves when MCP_TRANSPORT is unset. The settings field and
+#: main() both read it, so the transport that decides whether a token is
+#: required is the transport that actually starts.
+DEFAULT_TRANSPORT: Literal["stdio", "streamable-http"] = "streamable-http"
+
 
 class SearxngSettings(BaseCoreSettings):
+    # The base class defaults this to stdio. This server defaults to HTTP, and
+    # the auth decision below reads the field, so the default is restated here.
+    transport: Literal["stdio", "streamable-http"] = Field(
+        default=DEFAULT_TRANSPORT,
+        description="MCP_TRANSPORT: streamable-http (default) or stdio.",
+    )
     searxng_url: str = Field(
         default="",
         validation_alias=AliasChoices("SEARXNG_URL", "MCP_SEARXNG_URL"),
@@ -61,15 +74,28 @@ logger = logging.getLogger("searxng")
 searxng = SearxngClient(url=settings.searxng_url, cache_ttl=settings.searxng_cache_ttl)
 reader = UrlReader()
 
-mcp = FastMCP(
-    "SearXNG Search",
-    auth=build_auth_provider(
+# HTTP needs a bearer token (MCP_AUTH_TOKEN) or the server refuses to start.
+# stdio is a local pipe with no network surface, so it is the one transport
+# that runs without a token. MCP_AUTH_REQUIRED=false does not open HTTP:
+# run_server refuses streamable-http with no auth provider on its own.
+try:
+    _auth = build_auth_provider(
         settings.auth_token,
         client_id="searxng",
-        required=settings.auth_required,
+        required=settings.auth_required and settings.transport != "stdio",
         logger=logger,
-    ),
-)
+    )
+except AuthRequiredError as exc:
+    print(f"FATAL: {exc}", file=sys.stderr)
+    print("  Set MCP_AUTH_TOKEN. The HTTP transport refuses to start without it.", file=sys.stderr)
+    print(
+        '  Generate one: python3 -c "import secrets; print(secrets.token_urlsafe(32))"',
+        file=sys.stderr,
+    )
+    print("  Put it in .env (mode 600), never in a compose file or in git.", file=sys.stderr)
+    raise SystemExit(1) from exc
+
+mcp = FastMCP("SearXNG Search", auth=_auth)
 
 
 # Kept as an alias so the ~12 existing `_format(...)` call sites stay identical.
@@ -444,7 +470,7 @@ def apply_session_idle_timeout() -> float | None:
 
 def main() -> None:
     apply_session_idle_timeout()
-    run_server(mcp, default_port=3702, default_transport="streamable-http")
+    run_server(mcp, default_port=3702, default_transport=DEFAULT_TRANSPORT)
 
 
 if __name__ == "__main__":

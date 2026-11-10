@@ -18,8 +18,13 @@ import os
 
 import fastmcp
 import pytest
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 os.environ.setdefault("SEARXNG_URL", "http://searxng.invalid:8888")
+# server.py also exits at import with no bearer token, because its default transport
+# is HTTP. These tests import the server the way production runs it, so they
+# make that choice explicitly. The value is a fake.
+os.environ.setdefault("MCP_AUTH_TOKEN", "test-token-not-a-secret")
 
 from mcp_searxng import server  # noqa: E402
 
@@ -30,7 +35,12 @@ def _manager_timeout() -> float | None:
     async def read() -> float | None:
         async with app.router.lifespan_context(app):
             (route,) = [r for r in app.routes if getattr(r, "path", None) == "/mcp"]
-            return route.endpoint.session_manager.session_idle_timeout
+            # With a bearer token configured, the transport sits behind the
+            # auth middleware. Step through it to the app that owns the manager.
+            endpoint = route.endpoint
+            while not hasattr(endpoint, "session_manager"):
+                endpoint = endpoint.app
+            return endpoint.session_manager.session_idle_timeout
 
     return asyncio.run(read())
 
@@ -39,6 +49,13 @@ def _manager_timeout() -> float | None:
 def unset(monkeypatch):
     monkeypatch.delenv("MCP_SESSION_IDLE_TIMEOUT", raising=False)
     monkeypatch.setattr(fastmcp.settings, "http_session_idle_timeout", None)
+    # The reaper patches the SDK class once per process and the first call
+    # decides the timeout, exactly as in a real server. Start every test from
+    # the unpatched class so each one is that first call.
+    current = StreamableHTTPSessionManager.__init__
+    monkeypatch.setattr(
+        StreamableHTTPSessionManager, "__init__", getattr(current, "__wrapped__", current)
+    )
 
 
 def test_sessions_get_the_default_idle_timeout(unset):
