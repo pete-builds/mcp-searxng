@@ -23,6 +23,10 @@ import pytest
 # server.py exits at import when SEARXNG_URL is unset. No request is made here:
 # the manifest is built from the registered tools, not from the instance.
 os.environ.setdefault("SEARXNG_URL", "http://searxng.invalid:8888")
+# server.py also exits at import with no bearer token, because its default transport
+# is HTTP. These tests import the server the way production runs it, so they
+# make that choice explicitly. The value is a fake.
+os.environ.setdefault("MCP_AUTH_TOKEN", "test-token-not-a-secret")
 
 from mcp_searxng.server import mcp  # noqa: E402
 

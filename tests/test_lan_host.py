@@ -31,6 +31,10 @@ import pytest
 MODULE = "mcp_searxng.server"
 LAN_HOST = "192.168.86.20:3702"
 
+#: HTTP refuses to start with no bearer token, so the subprocess gets a fake
+#: one and every request presents it. The Host check is what is under test.
+TOKEN = "test-token-not-a-secret"
+
 INITIALIZE = json.dumps(
     {
         "jsonrpc": "2.0",
@@ -72,14 +76,15 @@ def _serve(extra_env: dict[str, str] | None = None) -> Iterator[int]:
     env = {
         k: v
         for k, v in os.environ.items()
-        # Bind host, transport and auth come from the server's own defaults,
-        # never from whatever the calling shell happens to export.
+        # Bind host and transport come from the server's own defaults, and the
+        # token from this file, never from whatever the calling shell exports.
         if k not in {"FASTMCP_HOST", "MCP_HOST", "MCP_TRANSPORT"}
         and not k.startswith(("FASTMCP_HTTP_", "MCP_AUTH"))
     }
     env.update(
         {
             "SEARXNG_URL": "http://searxng.invalid:8888",
+            "MCP_AUTH_TOKEN": TOKEN,
             "FASTMCP_PORT": str(port),
             "FASTMCP_CHECK_FOR_UPDATES": "off",
             "FASTMCP_SHOW_SERVER_BANNER": "false",
@@ -126,6 +131,7 @@ def _initialize(connect_to: str, port: int, host_header: str) -> int:
                 "Host": host_header,
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
+                "Authorization": f"Bearer {TOKEN}",
             },
         )
         resp = conn.getresponse()
