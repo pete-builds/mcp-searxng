@@ -3,7 +3,7 @@
 Notable changes to mcp-searxng. Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before 0.5.0 have no entry here: see the git tags.
 
-## [0.5.0] (2026-11-09)
+## [0.5.0] (2026-11-20)
 
 ### Breaking
 
@@ -55,6 +55,11 @@ Releases before 0.5.0 have no entry here: see the git tags.
   default comes from. It also carries session reaper fixes: `MCP_SESSION_IDLE_TIMEOUT=off`
   now really means no idle timeout, and the timeout no longer depends on which
   FastMCP and MCP SDK versions happen to be installed.
+- `serverInfo.version` in the `initialize` response now reports this server's
+  release (`0.5.0`). It used to report FastMCP's own version (`4.2.2`), which
+  told a client nothing about which release of mcp-searxng it was talking to.
+- The release workflow refuses to build when the tag and the `pyproject.toml`
+  version disagree, so a published image cannot report a version it is not.
 - `MCP_TRANSPORT` unset now means HTTP in the settings object too, matching what
   the server has always started. Nothing changes for a deployment that did not
   set it.
@@ -64,3 +69,5 @@ Releases before 0.5.0 have no entry here: see the git tags.
 - `tests/test_auth_required.py` holds the behavior above against the real server
   module, its real ASGI app, and a real subprocess: both refusals to start, the
   three `401` and `200` cases, the stdio exemption, and the tokenless healthcheck.
+- `tests/test_server_version.py` boots the real server and checks `serverInfo.version`
+  against `pyproject.toml`.
