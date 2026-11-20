@@ -79,7 +79,7 @@ numbers as optimistic and the holdout as the honest estimate.
 
 ### Through the MCP layer (`replay.py compare`, 24 queries)
 
-| call | metric | 0.5.0 | this branch |
+| call | metric | 0.5.0 | 0.6.0 |
 |---|---|---|---|
 | search_deep pages=3, max 50 | duplicates (same page, different URL) | 6 | 0 |
 | | relevant results in the 50 returned | 334 | 336 |
@@ -92,7 +92,7 @@ numbers as optimistic and the holdout as the honest estimate.
 
 ### Live (`live.py`, one run each, same minute, real HTTP + bearer token)
 
-| | 0.5.0 | this branch |
+| | 0.5.0 | 0.6.0 |
 |---|---|---|
 | search, 12 sequential, median / p95 | 0.98 s / 1.18 s | 0.94 s / 1.18 s |
 | search_deep pages=3, 3 runs, median | 2.95 s | 2.92 s |

@@ -3,7 +3,7 @@
 Notable changes to mcp-searxng. Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before 0.5.0 have no entry here: see the git tags.
 
-## [Unreleased]
+## [0.6.0] (2026-11-20)
 
 Measured against 0.5.0 on recorded SearXNG answers; method and limits in
 `bench/README.md`.

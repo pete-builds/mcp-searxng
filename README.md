@@ -56,14 +56,14 @@ export SEARXNG_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urls
 docker run -d --name mcp-searxng -p 127.0.0.1:3702:3702 \
   -e SEARXNG_URL=http://your-searxng:8888 \
   -e MCP_AUTH_TOKEN="$SEARXNG_MCP_TOKEN" \
-  ghcr.io/pete-builds/mcp-searxng:0.5.0
+  ghcr.io/pete-builds/mcp-searxng:0.6.0
 ```
 
 or without Docker, from a tagged release (there is no PyPI package yet):
 
 ```bash
 SEARXNG_URL=http://your-searxng:8888 MCP_AUTH_TOKEN="$SEARXNG_MCP_TOKEN" \
-  uvx --from git+https://github.com/pete-builds/mcp-searxng@v0.5.0 mcp-searxng
+  uvx --from git+https://github.com/pete-builds/mcp-searxng@v0.6.0 mcp-searxng
 ```
 
 `docker-compose.yml` at the repo root is the long-running setup this project's author uses (host networking, `.env` file); see [Configuration](#configuration).
@@ -98,7 +98,7 @@ or in `.mcp.json`, with the token expanded from your environment so it stays out
   "mcpServers": {
     "searxng": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/pete-builds/mcp-searxng@v0.5.0", "mcp-searxng"],
+      "args": ["--from", "git+https://github.com/pete-builds/mcp-searxng@v0.6.0", "mcp-searxng"],
       "env": { "MCP_TRANSPORT": "stdio", "SEARXNG_URL": "http://your-searxng:8888" }
     }
   }

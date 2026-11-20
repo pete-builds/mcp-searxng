@@ -7,11 +7,11 @@
     "url": "https://github.com/pete-builds/mcp-searxng",
     "source": "github"
   },
-  "version": "0.5.0",
+  "version": "0.6.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/pete-builds/mcp-searxng:0.5.0",
+      "identifier": "ghcr.io/pete-builds/mcp-searxng:0.6.0",
       "transport": {
         "type": "stdio"
       },
