@@ -1,0 +1,6 @@
+# CI only: build mcp-searxng from this checkout instead of pulling the release,
+# so the quickstart job tests the code in the pull request.
+services:
+  mcp-searxng:
+    image: mcp-searxng:quickstart-ci
+    build: ../..

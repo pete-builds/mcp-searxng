@@ -58,6 +58,16 @@ class TestRateLimitHoldsUnderConcurrency:
 
     @pytest.mark.asyncio
     @respx.mock
+    async def test_min_interval_zero_disables_spacing(self, monkeypatch) -> None:
+        monkeypatch.setattr(mod, "REQUEST_DELAY", 5.0)  # would stall the test if used
+        respx.get(f"{BASE}/search").mock(return_value=httpx.Response(200, json=page([])))
+        c = mod.SearxngClient(url=BASE, cache_ttl=0, min_interval=0)
+        started = time.monotonic()
+        await asyncio.gather(*(c.search(f"z{i}") for i in range(3)))
+        assert time.monotonic() - started < 1.0
+
+    @pytest.mark.asyncio
+    @respx.mock
     async def test_identical_concurrent_queries_share_one_request(self, client) -> None:
         route = respx.get(f"{BASE}/search").mock(
             return_value=httpx.Response(200, json=page([hit("https://a.example/")]))

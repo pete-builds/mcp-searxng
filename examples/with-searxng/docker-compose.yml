@@ -1,0 +1,32 @@
+# SearXNG and mcp-searxng together, with SearXNG's JSON API already enabled.
+#
+#   cp .env.example .env && chmod 600 .env    # then fill in both secrets
+#   docker compose up -d
+#
+# The MCP endpoint is http://127.0.0.1:3702/mcp and needs the bearer token from
+# .env. SearXNG is not published to the host at all: only mcp-searxng talks to it.
+# CI starts this exact file on every pull request (the quickstart job).
+
+services:
+  searxng:
+    image: docker.io/searxng/searxng:2026.11.15-2d500cb6b
+    restart: unless-stopped
+    environment:
+      # SearXNG refuses to start with the default secret_key.
+      - SEARXNG_SECRET=${SEARXNG_SECRET:?set SEARXNG_SECRET in .env}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+
+  mcp-searxng:
+    image: ghcr.io/pete-builds/mcp-searxng:0.5.0
+    restart: unless-stopped
+    depends_on:
+      - searxng
+    environment:
+      - SEARXNG_URL=http://searxng:8080
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:?set MCP_AUTH_TOKEN in .env}
+      - FASTMCP_HOST=0.0.0.0
+    ports:
+      # Loopback only. To reach it from another machine, put TLS in front of it
+      # or use a private network such as Tailscale: the token is not encryption.
+      - "127.0.0.1:3702:3702"

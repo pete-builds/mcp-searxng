@@ -50,7 +50,7 @@ class ResolvedUrl:
     address: str
 
 
-def _ip_is_blocked(ip: ipaddress._BaseAddress) -> bool:
+def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """True if the IP falls in a non-public / unsafe range.
 
     ``is_global`` is the catch-all: it is False for every range the explicit

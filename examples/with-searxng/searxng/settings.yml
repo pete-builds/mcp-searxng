@@ -1,0 +1,18 @@
+# Minimal SearXNG settings for use behind mcp-searxng. Everything not set here
+# comes from SearXNG's own defaults.
+use_default_settings: true
+
+server:
+  # The real secret comes from SEARXNG_SECRET in .env, which overrides this.
+  secret_key: "set-SEARXNG_SECRET-in-.env"
+  # The bot limiter answers 429 to a single client sending many queries, which
+  # is exactly what an MCP server is. SearXNG is not published to the host in
+  # this compose file, so nothing else can reach it.
+  limiter: false
+  image_proxy: false
+
+search:
+  # json is what mcp-searxng speaks. Without it every search is a 403.
+  formats:
+    - html
+    - json

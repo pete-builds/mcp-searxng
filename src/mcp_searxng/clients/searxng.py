@@ -163,6 +163,7 @@ class SearxngClient:
         url: str,
         cache_ttl: int = DEFAULT_CACHE_TTL,
         cache_maxsize: int = DEFAULT_CACHE_MAXSIZE,
+        min_interval: float | None = None,
     ):
         self.base_url = url.rstrip("/")
         self._client = httpx.AsyncClient(
@@ -170,6 +171,8 @@ class SearxngClient:
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
         self._last_request_time = 0.0
+        # None means the module default, REQUEST_DELAY, read at call time.
+        self._min_interval = min_interval
         # Serialises the spacing decision. Without it, N concurrent callers all
         # read the same _last_request_time, all sleep the same amount, and all
         # fire together: measured gaps of 0.0s between 5 concurrent requests.
@@ -185,11 +188,14 @@ class SearxngClient:
 
     async def _rate_limit(self):
         """Enforce a minimum delay between requests, across concurrent callers."""
+        delay = REQUEST_DELAY if self._min_interval is None else self._min_interval
+        if delay <= 0:
+            return
         async with self._rate_lock:
             now = time.monotonic()
             elapsed = now - self._last_request_time
-            if elapsed < REQUEST_DELAY:
-                await asyncio.sleep(REQUEST_DELAY - elapsed)
+            if elapsed < delay:
+                await asyncio.sleep(delay - elapsed)
             self._last_request_time = time.monotonic()
 
     @staticmethod
@@ -230,7 +236,7 @@ class SearxngClient:
         if task is None:
             task = asyncio.ensure_future(self._fetch(path, params, key))
             self._inflight[key] = task
-            task.add_done_callback(lambda _t, k=key: self._inflight.pop(k, None))
+            task.add_done_callback(lambda _done: self._inflight.pop(key, None))
         # shield: one caller cancelling must not cancel the request for the rest.
         return await asyncio.shield(task)
 
@@ -362,7 +368,7 @@ class SearxngClient:
         Order: first sighting wins, so page 1 comes first and each page keeps
         SearXNG's relevance order. search_deep then applies rank_deep().
         """
-        seen = {}
+        seen: dict[str, dict] = {}
         for r in results:
             url = r.get("url", "")
             if not url:

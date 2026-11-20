@@ -57,6 +57,15 @@ class SearxngSettings(BaseCoreSettings):
         validation_alias=AliasChoices("SEARXNG_CACHE_TTL", "MCP_SEARXNG_CACHE_TTL"),
         description="Result cache TTL in seconds.",
     )
+    searxng_min_interval: float = Field(
+        default=1.0,
+        ge=0,
+        validation_alias=AliasChoices("SEARXNG_MIN_INTERVAL", "MCP_SEARXNG_MIN_INTERVAL"),
+        description=(
+            "Minimum seconds between requests to SearXNG, across all sessions. "
+            "0 disables the spacing."
+        ),
+    )
 
 
 try:
@@ -74,7 +83,11 @@ if not settings.searxng_url:
 configure_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger("searxng")
 
-searxng = SearxngClient(url=settings.searxng_url, cache_ttl=settings.searxng_cache_ttl)
+searxng = SearxngClient(
+    url=settings.searxng_url,
+    cache_ttl=settings.searxng_cache_ttl,
+    min_interval=settings.searxng_min_interval,
+)
 reader = UrlReader()
 
 # HTTP needs a bearer token (MCP_AUTH_TOKEN) or the server refuses to start.
@@ -484,7 +497,7 @@ async def get_engines() -> str:
 # ============================================================
 
 
-def apply_session_idle_timeout() -> float | None:
+def apply_session_idle_timeout() -> float | str | None:
     """Give streamable-http sessions an idle timeout FastMCP 4 will honor.
 
     pete-mcp-core's reaper patches the SDK session manager to supply a timeout
@@ -504,7 +517,45 @@ def apply_session_idle_timeout() -> float | None:
     return fastmcp.settings.http_session_idle_timeout
 
 
+def probe_searxng(url: str, timeout: float = 5.0) -> str | None:
+    """Check SearXNG once at startup. Returns a warning, or None when it looks usable.
+
+    Sends an empty JSON query. SearXNG rejects a disabled output format with
+    403 before it looks at the query, and answers an enabled one with a 400
+    JSON error for the empty query, so this costs no engine traffic at all
+    (measured: 7 ms). Never fatal: SearXNG may simply start after this server,
+    and every tool call reports the same problem with the same fix.
+    """
+    try:
+        r = httpx.get(
+            f"{url.rstrip('/')}/search", params={"q": "", "format": "json"}, timeout=timeout
+        )
+    except httpx.HTTPError as e:
+        return (
+            f"SearXNG is not reachable at SEARXNG_URL ({type(e).__name__}). "
+            "Search tools will fail until it is."
+        )
+    if r.status_code == 403:
+        return (
+            "SearXNG refuses format=json (403). Add `json` under `search.formats` "
+            "in its settings.yml and restart it, or every search will fail."
+        )
+    if r.status_code == 429:
+        return "SearXNG rate-limited the startup check (429): its bot limiter will block this server."
+    if "json" not in r.headers.get("content-type", ""):
+        return (
+            f"SearXNG answered the startup check with {r.headers.get('content-type')!r}, "
+            "not JSON. Check SEARXNG_URL points at SearXNG itself."
+        )
+    return None
+
+
 def main() -> None:
+    warning = probe_searxng(settings.searxng_url)
+    if warning:
+        logger.warning("startup check: %s", warning)
+    else:
+        logger.info("startup check: SearXNG reachable with the JSON API enabled")
     apply_session_idle_timeout()
     run_server(mcp, default_port=3702, default_transport=DEFAULT_TRANSPORT)
 

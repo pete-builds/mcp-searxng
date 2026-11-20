@@ -29,6 +29,9 @@ jobs:
       - name: Ruff lint
         run: ruff check .
 
+      - name: Type check (mypy, src/)
+        run: mypy
+
       # Guards the drift class that bit mcp-spotify: a pin edited in
       # pyproject.toml but not regenerated into the lockfile, so the image keeps
       # building the old dependency while the manifest claims the new one.
@@ -55,6 +58,49 @@ jobs:
         # Only collects tests/test_*.py. tests/smoke.py is a live integration
         # script that needs a real SEARXNG_URL and is not run in CI.
         run: pytest tests/ -v
+
+  quickstart:
+    # Starts examples/with-searxng exactly as the README tells a new user to,
+    # with this checkout's code built in place of the released image, then
+    # talks to it as an MCP client. A quick start nobody runs rots silently.
+    name: Quick start (SearXNG + server via compose)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/with-searxng
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Start the stack
+        run: |
+          set -euo pipefail
+          printf 'MCP_AUTH_TOKEN=%s\nSEARXNG_SECRET=%s\n' \
+            "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > .env
+          docker compose -f docker-compose.yml -f compose.ci.yml up -d --build \
+            --wait --wait-timeout 180
+
+      - name: A request without the token is refused
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3702/mcp \
+            -H 'content-type: application/json' -d '{}')
+          echo "status without token: $code"
+          test "$code" = 401
+
+      - name: An MCP client with the token can search
+        run: |
+          set -euo pipefail
+          token=$(grep '^MCP_AUTH_TOKEN=' .env | cut -d= -f2)
+          docker compose exec -T -e TOKEN="$token" mcp-searxng python - < check.py
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
 
   security-scan:
     name: Trivy scan (filesystem + image)
