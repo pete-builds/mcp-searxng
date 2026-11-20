@@ -62,6 +62,16 @@ def test_rejects_missing_host():
         "http://100.127.255.254/",
         "http://192.0.0.8/",  # IETF protocol assignments, also non-global
         "http://198.18.0.1/",  # benchmarking range, also non-global
+        # IPv6 forms that embed an IPv4 address. Competing servers unwrap these
+        # by hand. Python's is_global already rejects every one (checked on
+        # 3.11.18, 3.12.16 and 3.13), so the guard needs no code for them; these
+        # pins catch a stdlib change that ever stops doing so.
+        "http://[::ffff:127.0.0.1]/",  # IPv4-mapped loopback
+        "http://[::ffff:10.0.0.1]/",  # IPv4-mapped private
+        "http://[64:ff9b::a00:1]/",  # NAT64 well-known prefix -> 10.0.0.1
+        "http://[64:ff9b:1::a00:1]/",  # NAT64 local-use prefix
+        "http://[2002:a00:1::1]/",  # 6to4 embedding 10.0.0.1
+        "http://[2001:0:4136:e378:8000:63bf:f5ff:fffe]/",  # Teredo
     ],
 )
 def test_rejects_private_and_reserved_ip_literals(url):
