@@ -22,6 +22,7 @@ public address to the guard and a loopback address to the HTTP client a few
 milliseconds later.
 """
 
+import asyncio
 import ipaddress
 import socket
 from dataclasses import dataclass
@@ -49,7 +50,7 @@ class ResolvedUrl:
     address: str
 
 
-def _ip_is_blocked(ip: ipaddress._BaseAddress) -> bool:
+def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """True if the IP falls in a non-public / unsafe range.
 
     ``is_global`` is the catch-all: it is False for every range the explicit
@@ -76,13 +77,10 @@ def validate_url(url: str) -> str:
     return resolve_url(url).url
 
 
-def resolve_url(url: str) -> ResolvedUrl:
-    """Validate a URL and return it with the address that passed the check.
+def _parse(url: str) -> tuple[str, ipaddress.IPv4Address | ipaddress.IPv6Address | None]:
+    """Scheme and host checks shared by the sync and async resolvers.
 
-    Same rejections as :func:`validate_url`. When the host is a name, every
-    address it resolves to is checked and the first one is returned as the
-    address to connect to; a caller that connects to ``address`` never
-    triggers a second lookup, which is what closes the rebinding window.
+    Returns the hostname and, when the host is an IP literal, the parsed address.
     """
     parts = urlsplit(url)
 
@@ -95,23 +93,18 @@ def resolve_url(url: str) -> ResolvedUrl:
     if not host:
         raise SsrfError("URL has no host")
 
-    # If the host is already an IP literal, check it directly.
     try:
         literal = ipaddress.ip_address(host)
     except ValueError:
         literal = None
 
-    if literal is not None:
-        if _ip_is_blocked(literal):
-            raise SsrfError(f"host IP {host} is in a private or reserved range")
-        return ResolvedUrl(url=url, host=host, address=str(literal))
+    if literal is not None and _ip_is_blocked(literal):
+        raise SsrfError(f"host IP {host} is in a private or reserved range")
+    return host, literal
 
-    # Otherwise resolve the hostname and check every returned address.
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except socket.gaierror as e:
-        raise SsrfError(f"could not resolve host {host!r}: {e}") from e
 
+def _check_infos(url: str, host: str, infos: list) -> ResolvedUrl:
+    """Reject the URL if ANY resolved address is non-public; else pin the first."""
     if not infos:
         raise SsrfError(f"host {host!r} resolved to no addresses")
 
@@ -131,3 +124,43 @@ def resolve_url(url: str) -> ResolvedUrl:
         checked.append(str(ip))
 
     return ResolvedUrl(url=url, host=host, address=checked[0])
+
+
+def resolve_url(url: str) -> ResolvedUrl:
+    """Validate a URL and return it with the address that passed the check.
+
+    Same rejections as :func:`validate_url`. When the host is a name, every
+    address it resolves to is checked and the first one is returned as the
+    address to connect to; a caller that connects to ``address`` never
+    triggers a second lookup, which is what closes the rebinding window.
+
+    Blocking: this does a synchronous DNS lookup. Code running on the event
+    loop must use :func:`resolve_url_async` instead.
+    """
+    host, literal = _parse(url)
+    if literal is not None:
+        return ResolvedUrl(url=url, host=host, address=str(literal))
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise SsrfError(f"could not resolve host {host!r}: {e}") from e
+    return _check_infos(url, host, infos)
+
+
+async def resolve_url_async(url: str) -> ResolvedUrl:
+    """:func:`resolve_url` without blocking the event loop.
+
+    ``socket.getaddrinfo`` is a blocking call. Run inline in an async tool, one
+    slow resolver answer (a lookup can take the full resolver timeout, several
+    seconds) stalled every other session on the server, because they all share
+    the one loop. The lookup runs in a worker thread instead. ``socket.getaddrinfo``
+    is looked up at call time, so tests that monkeypatch it still apply.
+    """
+    host, literal = _parse(url)
+    if literal is not None:
+        return ResolvedUrl(url=url, host=host, address=str(literal))
+    try:
+        infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
+    except socket.gaierror as e:
+        raise SsrfError(f"could not resolve host {host!r}: {e}") from e
+    return _check_infos(url, host, infos)

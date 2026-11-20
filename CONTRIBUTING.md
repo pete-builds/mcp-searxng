@@ -10,7 +10,19 @@ For typo fixes, doc improvements, and small bug fixes, just send a PR.
 
 ## Development
 
-See the README for environment setup and run instructions. Tests should pass before requesting review.
+```bash
+pip install -e ".[dev]"
+ruff check . && mypy && pytest tests/
+```
+
+All three run in CI, along with a lockfile drift check, an image build and
+scan, and the quick start in `examples/with-searxng`. A bug fix comes with a
+test that fails without it.
+
+A change to how `search_deep` orders or merges results should come with
+numbers: run `bench/ranking_experiment.py` on both recordings (see
+`bench/README.md`) and put the before and after in the PR. Gold sets are not
+edited to make a change look better.
 
 ## Pull requests
 

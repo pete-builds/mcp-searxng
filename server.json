@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pete-builds/mcp-searxng",
+  "title": "SearXNG Search",
+  "description": "Self-hosted web research for AI agents over your own SearXNG. No paid search API.",
+  "repository": {
+    "url": "https://github.com/pete-builds/mcp-searxng",
+    "source": "github"
+  },
+  "version": "0.5.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/pete-builds/mcp-searxng:0.5.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SEARXNG_URL",
+          "description": "Base URL of your SearXNG instance, with the JSON format enabled (e.g. http://host.docker.internal:8888)",
+          "isRequired": true
+        },
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "Must be stdio when a client launches the container directly",
+          "isRequired": true,
+          "default": "stdio"
+        }
+      ]
+    }
+  ]
+}

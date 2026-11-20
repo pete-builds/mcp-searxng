@@ -45,6 +45,10 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# Ownership proof for the official MCP registry: it must equal the "name" in
+# server.json, or the registry refuses to list the image.
+LABEL io.modelcontextprotocol.server.name="io.github.pete-builds/mcp-searxng"
+
 RUN groupadd --system --gid 1000 mcp \
     && useradd --system --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin mcp
 
