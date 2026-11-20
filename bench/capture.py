@@ -48,6 +48,7 @@ def main() -> int:
     ap.add_argument("--pages", type=int, default=5)
     ap.add_argument("--delay", type=float, default=2.0, help="seconds between requests")
     ap.add_argument("--out", default=str(HERE / "fixtures" / "capture.json.gz"))
+    ap.add_argument("--queries", default=str(HERE / "queries.json"))
     args = ap.parse_args()
 
     base = os.environ.get("SEARXNG_URL", "").rstrip("/")
@@ -55,7 +56,7 @@ def main() -> int:
         print("SEARXNG_URL is not set", file=sys.stderr)
         return 2
 
-    queries = json.loads((HERE / "queries.json").read_text())["queries"]
+    queries = json.loads(Path(args.queries).read_text())["queries"]
     client = httpx.Client(timeout=30)
 
     cfg = client.get(f"{base}/config").json()
