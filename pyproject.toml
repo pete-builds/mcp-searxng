@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "mcp-searxng"
 version = "0.5.0"
-description = "MCP server wrapping a self-hosted SearXNG instance. Web/news/tech/image/video search, multi-page consensus ranking, URL→markdown reading, and an 8-angle person fan-out for due diligence."
+description = "Self-hosted web research for AI agents: an MCP server for your own SearXNG, with engine provenance on every search, a multi-page deep search, and an SSRF-guarded page reader. No paid search API."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Pete Stergion", email = "pstergion@gmail.com" }]
 requires-python = ">=3.11"
-keywords = ["mcp", "searxng", "search", "claude", "due-diligence", "vet", "research"]
+keywords = ["mcp", "mcp-server", "searxng", "web-search", "self-hosted", "research", "claude", "ai-agents"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

@@ -118,7 +118,7 @@ async def run(src: str, out: Path) -> None:
     env = {
         **os.environ, "SEARXNG_URL": searxng, "MCP_AUTH_TOKEN": token,
         "FASTMCP_HOST": "127.0.0.1", "FASTMCP_PORT": str(port),
-        "SEARXNG_CACHE_TTL": "0", "LOG_LEVEL": "WARNING",
+        "SEARXNG_CACHE_TTL": "0", "MCP_LOG_LEVEL": "WARNING",
         "FASTMCP_CHECK_FOR_UPDATES": "off",
     }
     boot = f"import sys; sys.path.insert(0, {str(Path(src).resolve())!r}); " \

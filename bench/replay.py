@@ -52,7 +52,7 @@ CALLS = [
 async def _run(src: str, fixture: Path, out: Path) -> None:
     os.environ.setdefault("SEARXNG_URL", "http://searxng.invalid:8888")
     os.environ.setdefault("MCP_AUTH_TOKEN", "bench-token-not-a-secret")
-    os.environ.setdefault("LOG_LEVEL", "WARNING")
+    os.environ.setdefault("MCP_LOG_LEVEL", "WARNING")
     sys.path.insert(0, str(Path(src).resolve()))
 
     import fastmcp

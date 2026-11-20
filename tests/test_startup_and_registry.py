@@ -76,3 +76,19 @@ class TestRegistryMetadata:
 
     def test_description_fits_the_registry_limit(self, meta) -> None:
         assert len(meta["description"]) <= 100
+
+
+def test_install_docs_pin_the_current_release() -> None:
+    """Every copy-paste install line names the version in pyproject.toml.
+
+    A release that bumps pyproject but not these leaves new users installing
+    the previous release from the README while reading about this one.
+    """
+    import re
+
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    for rel in ("README.md", "examples/with-searxng/docker-compose.yml", "docker-compose.yml"):
+        text = (ROOT / rel).read_text()
+        pins = set(re.findall(r"mcp-searxng(?::|@v)(\d+\.\d+\.\d+)", text))
+        assert pins, f"{rel}: no version pin found (did the pattern change?)"
+        assert pins == {version}, f"{rel} pins {sorted(pins)}, pyproject is {version}"
