@@ -19,7 +19,8 @@ Measured against 0.5.0 on recorded SearXNG answers; method and limits in
 - **read_url returned binary files as text.** A PDF came back as 2 million
   characters of mojibake labelled markdown. PDFs, images and other binary types
   are refused before download with `code: UNSUPPORTED_CONTENT_TYPE`. JSON, XML,
-  CSV and plain text still come back raw.
+  CSV and plain text come back raw; RSS, Atom and OSM XML used to be sent through
+  the article extractor and fail with `NO_CONTENT`.
 - **The SSRF guard blocked the event loop** on every DNS lookup, stalling all
   sessions behind one slow resolver. Lookups run in a worker thread.
 - **The 1 s request spacing did not hold under concurrency.** Concurrent
@@ -29,9 +30,11 @@ Measured against 0.5.0 on recorded SearXNG answers; method and limits in
   SearXNG URL. They are now tool errors that name the fix, with a code:
   `SEARXNG_FORBIDDEN` (JSON API off), `SEARXNG_RATE_LIMITED`,
   `SEARXNG_UNREACHABLE`, `SEARXNG_TIMEOUT`, `SEARXNG_NOT_JSON`,
-  `SEARXNG_HTTP_ERROR`.
+  `SEARXNG_HTTP_ERROR`, `SEARXNG_REQUEST_FAILED`. A connection reset
+  mid-response is retried once.
 - `max_results=-1` dropped the last result; `pages=0` returned a warning that
-  blamed the engines. Both are clamped. `pages_fetched` now reports pages
+  blamed the engines. Both are clamped to at least 1 (so `max_results=0` now
+  returns one result). `pages_fetched` now reports pages
   actually fetched (it echoed the request).
 - `search_person` returned zero results, not an error, when SearXNG was down
   for every angle.
@@ -60,6 +63,8 @@ Measured against 0.5.0 on recorded SearXNG answers; method and limits in
 ### Added
 
 - `include_domains` and `exclude_domains` on `search` and `search_deep`.
+  Subdomains match, and a leading `www.` is ignored, so `www.example.com` covers
+  all of `*.example.com`.
 - `SEARXNG_MIN_INTERVAL` (default 1.0 s; 0 disables request spacing).
 - A startup check that warns, with the fix, when SearXNG's JSON API is off, its
   limiter is on, or the URL is wrong. Never fatal; no engine traffic.

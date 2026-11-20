@@ -101,6 +101,16 @@ class TestReadUrlErrors:
         assert data["code"] == "HTTP_ERROR" and data["status"] == 451 and "error" in data
 
     @pytest.mark.asyncio
+    async def test_deadline_reports_timeout(self, monkeypatch) -> None:
+        async def slow(url):
+            raise TimeoutError()
+
+        monkeypatch.setattr(server.reader, "read", slow)
+        res = await _call("read_url", {"url": "https://e.example/"})
+        data = json.loads(res.content[0].text)
+        assert not res.is_error and data["code"] == "TIMEOUT"
+
+    @pytest.mark.asyncio
     async def test_blocked_url_keeps_its_code(self) -> None:
         res = await _call("read_url", {"url": "http://127.0.0.1:8080/"})
         data = json.loads(res.content[0].text)

@@ -250,7 +250,9 @@ class SearxngClient:
                 data = resp.json()
                 self._cache_put(key, data)
                 return data
-            except (httpx.RemoteProtocolError, httpx.ConnectError) as e:
+            # ReadError is a connection reset mid-response. Like a refused or
+            # dropped connection it is worth one retry: the GET is idempotent.
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError) as e:
                 if attempt == 0:
                     continue
                 raise SearxngError(
@@ -274,6 +276,16 @@ class SearxngClient:
                     f"SearXNG answered with {ctype}, not JSON. Enable the JSON API: "
                     "add `json` under `search.formats` in SearXNG's settings.yml, "
                     "then restart SearXNG.",
+                ) from e
+            except httpx.HTTPError as e:
+                # Everything else httpx can raise (WriteError, LocalProtocolError,
+                # DecodingError, ...). Without this, one of them escaped raw and,
+                # because search_person catches only SearxngError per angle, a
+                # single bad angle failed the whole 8-angle call.
+                raise SearxngError(
+                    "SEARXNG_REQUEST_FAILED",
+                    f"The request to SearXNG failed ({type(e).__name__}). Retry; if it "
+                    "persists, check the SearXNG logs.",
                 ) from e
         raise AssertionError("unreachable")  # pragma: no cover
 

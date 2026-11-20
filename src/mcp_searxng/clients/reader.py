@@ -2,8 +2,9 @@
 
 Fetches a URL and extracts the main article content as Markdown using
 trafilatura, which strips boilerplate (nav, ads, footers) before conversion.
-Text that is not HTML or XML (plain text, JSON, CSV) is returned as-is. HTML
-with no extractable main content is an error, not a raw dump of the page.
+Anything that is not HTML (plain text, JSON, CSV, RSS and other XML) is
+returned as-is. HTML with no extractable main content is an error, not a raw
+dump of the page.
 Binary bodies (PDF, images, archives) are refused before they are downloaded.
 """
 
@@ -198,8 +199,11 @@ class UrlReader:
         # Same decoding resp.text applies: the declared charset, else UTF-8.
         text = body.decode(resp.charset_encoding or "utf-8", errors="replace")
 
-        if "html" not in content_type and "xml" not in content_type:
-            # Plain text / JSON / etc -- return as-is
+        if "html" not in content_type:
+            # Plain text, JSON, CSV and non-HTML XML (RSS, Atom, OSM) -- as-is.
+            # Only HTML and XHTML go to trafilatura: it extracts article bodies,
+            # so an RSS feed or an Overpass XML answer used to come back as
+            # NO_CONTENT instead of its own text.
             return {
                 "url": final_url,
                 "title": None,

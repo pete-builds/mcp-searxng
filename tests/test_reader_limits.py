@@ -157,6 +157,19 @@ class TestContentGate:
         assert '"display_name": "Ithaca, NY"' in data["markdown"]
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("ctype", ["application/rss+xml", "application/osm3s+xml", "text/xml"])
+    @respx.mock
+    async def test_non_html_xml_comes_back_raw(self, public_dns, ctype) -> None:
+        """RSS and Overpass XML used to go through the article extractor and come
+        back as NO_CONTENT. Only HTML and XHTML are extracted now."""
+        body = b'<?xml version="1.0"?><osm><node id="1" lat="42.44" lon="-76.50"/></osm>'
+        route("/xml").mock(return_value=httpx.Response(200, headers={"content-type": ctype},
+                                                       content=body))
+        data = await reader_mod.UrlReader().read("https://big.example/xml")
+        assert data["extraction"] == "raw"
+        assert 'lat="42.44"' in data["markdown"]
+
+    @pytest.mark.asyncio
     @respx.mock
     async def test_declared_charset_is_honoured(self, public_dns) -> None:
         route("/latin1").mock(
@@ -170,26 +183,63 @@ class TestContentGate:
 
 
 class TestGuardDoesNotBlockTheLoop:
-    @pytest.mark.asyncio
-    async def test_slow_dns_lets_other_tasks_run(self, monkeypatch) -> None:
+    """The ticker's count is read at the moment the lookup RETURNS.
+
+    An earlier version read it after gather() finished, by which time the ticker
+    had always completed, so a blocking lookup passed too (a reviewer's mutation
+    survived). Snapshotting at return is what makes a blocked loop visible: the
+    ticker cannot have advanced while the loop thread was stuck in getaddrinfo.
+    """
+
+    @staticmethod
+    def _slow_dns(monkeypatch, seconds: float = 0.4) -> None:
         def slow_getaddrinfo(host, port, *args, **kwargs):
-            time.sleep(0.4)  # a resolver taking its time, as they do
+            time.sleep(seconds)  # a resolver taking its time, as they do
             return [(2, 1, 6, "", (PUBLIC_IP, 0))]
 
         monkeypatch.setattr(ssrf.socket, "getaddrinfo", slow_getaddrinfo)
+
+    @staticmethod
+    async def _ticks_while(coro) -> int:
         ticks = 0
 
         async def ticker():
             nonlocal ticks
-            for _ in range(20):
+            for _ in range(60):
                 await asyncio.sleep(0.01)
                 ticks += 1
 
+        async def run_and_snapshot():
+            await coro
+            return ticks
+
+        tick_task = asyncio.ensure_future(ticker())
+        await asyncio.sleep(0)  # let the ticker start first
+        seen = await run_and_snapshot()
+        tick_task.cancel()
+        return seen
+
+    @pytest.mark.asyncio
+    async def test_slow_dns_lets_other_tasks_run(self, monkeypatch) -> None:
+        self._slow_dns(monkeypatch)
         resolve = getattr(ssrf, "resolve_url_async", None)
         assert resolve is not None, "no async resolver: the lookup runs on the event loop"
-        await asyncio.gather(resolve("https://slow-dns.example/"), ticker())
-        # On the loop thread, the ticker would get no turns during the 0.4 s lookup.
-        assert ticks >= 10, f"event loop stalled during DNS (ticks={ticks})"
+        seen = await self._ticks_while(resolve("https://slow-dns.example/"))
+        assert seen >= 10, f"event loop stalled during DNS (ticks={seen})"
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_reader_does_not_block_the_loop_on_dns(self, monkeypatch) -> None:
+        """Through UrlReader.read, so the reader cannot quietly go back to the
+        blocking resolve_url while the async one stays tested in isolation."""
+        self._slow_dns(monkeypatch)
+        route("/page", host="slow-dns.example").mock(
+            return_value=httpx.Response(200, headers={"content-type": "text/plain"}, content=b"ok")
+        )
+        seen = await self._ticks_while(
+            reader_mod.UrlReader().read("https://slow-dns.example/page")
+        )
+        assert seen >= 10, f"event loop stalled during the reader's DNS lookup (ticks={seen})"
 
     @pytest.mark.asyncio
     async def test_async_resolver_rejects_private_answers(self, monkeypatch) -> None:

@@ -276,3 +276,97 @@ class TestSearchPerson:
         logged = " ".join(r.getMessage() for r in caplog.records if r.levelno >= logging.INFO)
         assert "Zebulon" not in logged
         assert "private research topic" not in logged
+
+
+class TestTransportErrorsStayContained:
+    """Review of #97: only connect, timeout, status and JSON errors were mapped.
+    A connection reset (ReadError) escaped raw, and because search_person
+    catches SearxngError per angle, one reset failed all eight angles."""
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_read_error_is_retried_once(self, client) -> None:
+        route = respx.get(f"{BASE}/search").mock(side_effect=[
+            httpx.ReadError("connection reset"),
+            httpx.Response(200, json=page([hit("https://a.example/")])),
+        ])
+        out = await client.search("q")
+        assert route.call_count == 2
+        assert out["results"][0]["url"] == "https://a.example/"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("err", [
+        httpx.ReadError("reset"), httpx.WriteError("broken pipe"),
+        httpx.LocalProtocolError("bad"), httpx.DecodingError("gzip"),
+    ])
+    @respx.mock
+    async def test_every_httpx_error_becomes_a_searxng_error(self, client, err) -> None:
+        respx.get(f"{BASE}/search").mock(side_effect=err)
+        with pytest.raises(mod.SearxngError) as exc:
+            await client.search("q")
+        assert exc.value.code in {"SEARXNG_UNREACHABLE", "SEARXNG_REQUEST_FAILED"}
+        assert "searxng.test" not in str(exc.value)
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_one_reset_angle_does_not_sink_search_person(self, client) -> None:
+        def answer(request):
+            if "site:linkedin.com" in request.url.params["q"]:
+                raise httpx.ReadError("connection reset")
+            return httpx.Response(200, json=page([hit("https://a.example/", title="Jane Doe")]))
+
+        respx.get(f"{BASE}/search").mock(side_effect=answer)
+        out = await client.search_person("Jane Doe")
+        assert out["failed_angles"] == {"professional": "SEARXNG_UNREACHABLE"}
+        assert out["total_results"] == 1
+
+
+class TestInflightSharing:
+    @pytest.mark.asyncio
+    async def test_first_caller_cancelling_does_not_cancel_the_rest(self, client, monkeypatch) -> None:
+        release = asyncio.Event()
+        calls = 0
+
+        async def slow_fetch(path, params, key):
+            nonlocal calls
+            calls += 1
+            await release.wait()
+            return page([hit("https://shared.example/")])
+
+        monkeypatch.setattr(client, "_fetch", slow_fetch)
+        first = asyncio.ensure_future(client.search("shared"))
+        second = asyncio.ensure_future(client.search("shared"))
+        await asyncio.sleep(0.01)
+        first.cancel()
+        release.set()
+        out = await second
+        assert calls == 1
+        assert out["results"][0]["url"] == "https://shared.example/"
+        with pytest.raises(asyncio.CancelledError):
+            await first
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_finished_requests_leave_the_inflight_table(self, client) -> None:
+        """Without the cleanup a finished request would be served forever,
+        bypassing the cache TTL (cache_ttl=0 here, so every call must go out)."""
+        route = respx.get(f"{BASE}/search").mock(return_value=httpx.Response(200, json=page([])))
+        await client.search("again")
+        await asyncio.sleep(0)  # done-callbacks run on the next loop turn
+        assert client._inflight == {}
+        await client.search("again")
+        assert route.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_person_results_that_name_the_person_come_first(client, monkeypatch) -> None:
+    """SearXNG's order puts the unrelated page first here; the name match must lead."""
+    async def fake_get(path, params=None):
+        return page([
+            hit("https://noise.example/", title="Doe family history", content="genealogy"),
+            hit("https://jane.example/", title="Jane Doe, Ithaca NY", content="profile"),
+        ])
+
+    monkeypatch.setattr(client, "_get", fake_get)
+    out = await client.search_person("Jane Doe", location="Ithaca")
+    assert [r["url"] for r in out["results"]] == ["https://jane.example/", "https://noise.example/"]
