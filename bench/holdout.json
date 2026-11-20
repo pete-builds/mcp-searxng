@@ -1,0 +1,19 @@
+{
+  "_about": "Holdout set. Written on 2026-11-20 AFTER the ranking strategy was picked on queries.json and BEFORE these queries were ever run, to check that the pick was not fitted to the first 24. Same gold rules as queries.json.",
+  "queries": [
+    {"id": "pydantic-settings", "kind": "tech", "q": "pydantic settings environment variables", "gold": ["docs.pydantic.dev", "github.com/pydantic"]},
+    {"id": "k8s-liveness", "kind": "tech", "q": "kubernetes liveness probe", "gold": ["kubernetes.io"]},
+    {"id": "sqlite-wal", "kind": "tech", "q": "sqlite write ahead logging", "gold": ["sqlite.org"]},
+    {"id": "git-rebase", "kind": "tech", "q": "git rebase interactive", "gold": ["git-scm.com"]},
+    {"id": "nginx-ws", "kind": "tech", "q": "nginx reverse proxy websocket", "gold": ["nginx.org", "docs.nginx.com"]},
+    {"id": "systemd-timer", "kind": "tech", "q": "systemd timer unit", "gold": ["freedesktop.org", "wiki.archlinux.org", "man7.org"]},
+    {"id": "ts-exit-node", "kind": "tech", "q": "Tailscale exit node", "gold": ["tailscale.com"]},
+    {"id": "py-freethreading", "kind": "tech", "q": "Python 3.13 free threading", "gold": ["docs.python.org", "peps.python.org"]},
+    {"id": "ollama-api", "kind": "tech", "q": "Ollama API generate endpoint", "gold": ["ollama.com", "github.com/ollama"]},
+    {"id": "ha-mqtt", "kind": "tech", "q": "Home Assistant MQTT integration", "gold": ["home-assistant.io"]},
+    {"id": "hubble-tension", "kind": "research", "q": "Hubble constant tension", "gold": ["nasa.gov", "esa.int", "arxiv.org", "en.wikipedia.org/wiki/Hubble"]},
+    {"id": "grateful-dead", "kind": "entity", "q": "Grateful Dead", "gold": ["dead.net", "en.wikipedia.org/wiki/Grateful_Dead"]},
+    {"id": "crispr", "kind": "research", "q": "CRISPR gene editing", "gold": ["en.wikipedia.org/wiki/CRISPR", "nih.gov", "britannica.com", "broadinstitute.org"]},
+    {"id": "nist-passwords", "kind": "research", "q": "NIST password guidelines", "gold": ["nist.gov"]}
+  ]
+}
