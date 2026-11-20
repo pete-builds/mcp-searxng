@@ -25,6 +25,7 @@ from pete_mcp_core.auth import AuthRequiredError
 from pete_mcp_core.settings import BaseCoreSettings
 from pydantic import AliasChoices, Field, ValidationError
 
+from mcp_searxng import __version__
 from mcp_searxng.clients.reader import UrlReader
 from mcp_searxng.clients.searxng import SearxngClient
 from mcp_searxng.clients.ssrf import SsrfError
@@ -95,7 +96,10 @@ except AuthRequiredError as exc:
     print("  Put it in .env (mode 600), never in a compose file or in git.", file=sys.stderr)
     raise SystemExit(1) from exc
 
-mcp = FastMCP("SearXNG Search", auth=_auth)
+# Pass the app version explicitly. Without it FastMCP reports its OWN version
+# in serverInfo (it read "4.2.2" under the 0.5.0 code), so a client could not
+# tell which release of this server it was talking to.
+mcp = FastMCP("SearXNG Search", version=__version__, auth=_auth)
 
 
 # Kept as an alias so the ~12 existing `_format(...)` call sites stay identical.
