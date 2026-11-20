@@ -18,7 +18,7 @@ services:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
 
   mcp-searxng:
-    image: ghcr.io/pete-builds/mcp-searxng:0.5.0
+    image: ghcr.io/pete-builds/mcp-searxng:0.6.0
     restart: unless-stopped
     depends_on:
       - searxng

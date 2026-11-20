@@ -39,6 +39,36 @@ jobs:
           fi
           echo "tag ${REF_NAME} matches pyproject.toml ${PY_VERSION}"
 
+      # The same check for every other surface a caller reads a version from:
+      # the registry entry (server.json version and image identifier) and the
+      # image pins people copy from the two compose files. tests/ enforce these
+      # on PRs, but no test runs on a tag push, so the guard repeats them. A
+      # stale identifier failed a sister repo's tag on 2026-09-09; this makes
+      # that the cheap failure here too.
+      - name: Guard every published version surface matches the tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python3 - "${REF_NAME#v}" <<'PY'
+          import json, re, sys
+          want = sys.argv[1]
+          meta = json.load(open("server.json"))
+          found = {
+              "server.json version": meta["version"],
+              "server.json packages[0].identifier": meta["packages"][0]["identifier"].rsplit(":", 1)[-1],
+          }
+          for path in ("docker-compose.yml", "examples/with-searxng/docker-compose.yml"):
+              pins = set(re.findall(r"ghcr\.io/pete-builds/mcp-searxng:(\d+\.\d+\.\d+)", open(path).read()))
+              found[path] = ",".join(sorted(pins)) or "(no pin found)"
+          bad = {k: v for k, v in found.items() if v != want}
+          for k, v in found.items():
+              print(f"{'ok ' if k not in bad else 'BAD'} {k}: {v}")
+          if bad:
+              print(f"::error::version surfaces disagree with tag {want}: {bad}")
+              sys.exit(1)
+          PY
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
