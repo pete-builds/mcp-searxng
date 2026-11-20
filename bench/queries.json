@@ -1,0 +1,29 @@
+{
+  "_about": "Benchmark queries with gold sets. A result is relevant when its host equals a gold entry's host (or is a subdomain of it) and its path starts with the gold entry's path, if one is given. Gold sets were written on 2026-11-20 BEFORE any ranking change, from what a practitioner would expect to see on page one: the primary source, its official docs, its repo. They are deliberately small and domain-level, so they measure whether authoritative sources surface near the top, not fine-grained relevance.",
+  "queries": [
+    {"id": "fastmcp-http", "kind": "tech", "q": "fastmcp streamable http transport", "gold": ["gofastmcp.com", "github.com/jlowin/fastmcp", "github.com/PrefectHQ/fastmcp", "pypi.org/project/fastmcp"]},
+    {"id": "httpx-timeout", "kind": "tech", "q": "httpx async client timeout configuration", "gold": ["python-httpx.org", "github.com/encode/httpx"]},
+    {"id": "trafilatura", "kind": "tech", "q": "trafilatura extract main content python", "gold": ["trafilatura.readthedocs.io", "github.com/adbar/trafilatura", "pypi.org/project/trafilatura"]},
+    {"id": "searxng-json", "kind": "tech", "q": "searxng settings.yml enable json format", "gold": ["docs.searxng.org", "github.com/searxng/searxng"]},
+    {"id": "mcp-spec", "kind": "tech", "q": "model context protocol specification", "gold": ["modelcontextprotocol.io", "github.com/modelcontextprotocol"]},
+    {"id": "nix-flakes", "kind": "tech", "q": "nixos flakes tutorial", "gold": ["nixos.wiki", "wiki.nixos.org", "nix.dev", "nixos.org"]},
+    {"id": "asyncio-timeout", "kind": "tech", "q": "python asyncio timeout context manager", "gold": ["docs.python.org"]},
+    {"id": "compose-healthcheck", "kind": "tech", "q": "docker compose healthcheck syntax", "gold": ["docs.docker.com"]},
+    {"id": "ssrf-rebinding", "kind": "tech", "q": "SSRF DNS rebinding prevention", "gold": ["owasp.org", "portswigger.net"]},
+    {"id": "rust-borrow", "kind": "tech", "q": "rust borrow checker explained", "gold": ["doc.rust-lang.org", "rust-lang.org"]},
+    {"id": "pg-jsonb-index", "kind": "tech", "q": "postgresql jsonb gin index", "gold": ["postgresql.org"]},
+    {"id": "cf-tunnel", "kind": "tech", "q": "cloudflare tunnel setup", "gold": ["developers.cloudflare.com", "cloudflare.com"]},
+    {"id": "cornell-library", "kind": "entity", "q": "Cornell University Library", "gold": ["library.cornell.edu"]},
+    {"id": "jwst", "kind": "research", "q": "James Webb Space Telescope discoveries", "gold": ["nasa.gov", "esa.int", "stsci.edu", "en.wikipedia.org/wiki/James_Webb"]},
+    {"id": "phish", "kind": "entity", "q": "Phish band", "gold": ["phish.com", "en.wikipedia.org/wiki/Phish"]},
+    {"id": "photosynthesis", "kind": "research", "q": "photosynthesis light dependent reactions", "gold": ["khanacademy.org", "britannica.com", "en.wikipedia.org/wiki/Light-dependent", "en.wikipedia.org/wiki/Photosynthesis", "libretexts.org"]},
+    {"id": "cisa-kev", "kind": "research", "q": "CISA known exploited vulnerabilities catalog", "gold": ["cisa.gov"]},
+    {"id": "searxng", "kind": "entity", "q": "SearXNG metasearch engine", "gold": ["github.com/searxng", "docs.searxng.org", "searxng.org"]},
+    {"id": "med-diet", "kind": "research", "q": "mediterranean diet health evidence", "gold": ["nih.gov", "mayoclinic.org", "harvard.edu", "who.int"]},
+    {"id": "vaccines", "kind": "research", "q": "how do mRNA vaccines work", "gold": ["cdc.gov", "who.int", "nih.gov", "fda.gov"]},
+    {"id": "owasp-top10", "kind": "research", "q": "OWASP top 10", "gold": ["owasp.org"]},
+    {"id": "le-limits", "kind": "tech", "q": "Let's Encrypt rate limits", "gold": ["letsencrypt.org", "community.letsencrypt.org"]},
+    {"id": "kernel-cycle", "kind": "research", "q": "Linux kernel release cycle", "gold": ["kernel.org", "en.wikipedia.org/wiki/Linux_kernel"]},
+    {"id": "ietf-http3", "kind": "research", "q": "HTTP/3 RFC 9114", "gold": ["rfc-editor.org", "ietf.org", "datatracker.ietf.org"]}
+  ]
+}
