@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp>=4.2.0,<5",
+    "fastmcp>=4.2.4,<5",
     "httpx>=0.28.1",
     "uvicorn>=0.54.0",
     "python-dotenv>=1.2.4",
